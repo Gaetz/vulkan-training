@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VulkanApp_Basic01_Textures"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VulkanApp_Basic02_3DMesh", "VulkanApp_Basic02_3DMesh\VulkanApp_Basic02_3DMesh.vcxproj", "{6FDD7846-64E9-4E30-B64A-D64BB18F6EBB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VulkanApp_Basic03_Mipmaps", "VulkanApp_Basic03_Mipmaps\VulkanApp_Basic03_Mipmaps.vcxproj", "{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{6FDD7846-64E9-4E30-B64A-D64BB18F6EBB}.Release|x64.Build.0 = Release|x64
 		{6FDD7846-64E9-4E30-B64A-D64BB18F6EBB}.Release|x86.ActiveCfg = Release|Win32
 		{6FDD7846-64E9-4E30-B64A-D64BB18F6EBB}.Release|x86.Build.0 = Release|Win32
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Debug|x64.ActiveCfg = Debug|x64
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Debug|x64.Build.0 = Debug|x64
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Debug|x86.ActiveCfg = Debug|Win32
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Debug|x86.Build.0 = Debug|Win32
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Release|x64.ActiveCfg = Release|x64
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Release|x64.Build.0 = Release|x64
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Release|x86.ActiveCfg = Release|Win32
+		{96826D19-0EDB-4931-B1C9-9593CA3AE1FE}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
