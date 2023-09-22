@@ -10,7 +10,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd textures\Aircraft N.jpg
+map_Kd textures\Aircraft S.jpg
 map_Bump textures\\Aircraft N.jpg
 map_Ks textures\\Aircraft S.jpg
 refl textures\\REF 1.jpg
@@ -24,7 +24,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd textures\Aircraft N.jpg
+map_Kd textures\Aircraft S.jpg
 map_Bump textures\\Aircraft N.jpg
 map_Ks textures\\Aircraft S.jpg
 refl textures\\REF 1.jpg
@@ -38,5 +38,5 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 0.417702
 illum 1
-map_Kd textures\Aircraft N.jpg
+map_Kd textures\Aircraft S.jpg
 refl textures\\REF 1.jpg

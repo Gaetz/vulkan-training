@@ -37,25 +37,27 @@ public:
 #else
 	static const bool enableValidationLayers = true;
 #endif
-	static const vector<const char*> validationLayers;
+	static const vector<const char *> validationLayers;
 
 	VulkanRenderer();
 	~VulkanRenderer();
 
-	int init(GLFWwindow* windowP);
+	int init(GLFWwindow *windowP);
 	void draw();
 	void clean();
 
 	void updateModel(int modelId, glm::mat4 modelP);
-	stbi_uc* loadTextureFile(const string& filename, int* width, int* height, vk::DeviceSize* imageSize);
+	int createMeshModel(string filename);
+	stbi_uc *loadTextureFile(const string &filename, int *width, int *height, vk::DeviceSize *imageSize);
 
 private:
-	GLFWwindow* window;
+	GLFWwindow *window;
 	vk::Instance instance;
-	vk::Queue graphicsQueue;			// Handles to queue (no value stored)
+	vk::Queue graphicsQueue; // Handles to queue (no value stored)
 	VkDebugUtilsMessengerEXT debugMessenger;
-	
-	struct {
+
+	struct
+	{
 		vk::PhysicalDevice physicalDevice;
 		vk::Device logicalDevice;
 	} mainDevice;
@@ -77,7 +79,7 @@ private:
 
 	vector<vk::Semaphore> imageAvailable;
 	vector<vk::Semaphore> renderFinished;
-	const int MAX_FRAME_DRAWS = 2;			// Should be less than the number of swapchain images, here 3 (could cause bugs)
+	const int MAX_FRAME_DRAWS = 2; // Should be less than the number of swapchain images, here 3 (could cause bugs)
 	int currentFrame = 0;
 	vector<vk::Fence> drawFences;
 
@@ -89,11 +91,11 @@ private:
 	vector<vk::DeviceMemory> vpUniformBufferMemory;
 	vk::DescriptorPool descriptorPool;
 	vector<vk::DescriptorSet> descriptorSets;
-	
+
 	ViewProjection viewProjection;
 	vk::DeviceSize minUniformBufferOffet;
 	size_t modelUniformAlignement;
-	Model* modelTransferSpace;
+	Model *modelTransferSpace;
 	vector<vk::Buffer> modelUniformBufferDynamic;
 	vector<vk::DeviceMemory> modelUniformBufferMemoryDynamic;
 
@@ -112,19 +114,18 @@ private:
 	vector<vk::DescriptorSet> samplerDescriptorSets;
 
 	vector<VulkanMeshModel> meshModels;
-	void createMeshModel(string filename);
 
 	// Instance
 	void createInstance();
-	bool checkInstanceExtensionSupport(const vector<const char*>& checkExtensions);
+	bool checkInstanceExtensionSupport(const vector<const char *> &checkExtensions);
 	bool checkValidationLayerSupport();
-	vector<const char*> getRequiredExtensions();
+	vector<const char *> getRequiredExtensions();
 
 	// Debug
 	void setupDebugMessenger();
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-	VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
-	void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
+	VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger);
+	void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator);
 
 	// Devices
 	void getPhysicalDevice();
@@ -137,14 +138,14 @@ private:
 	bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
 	SwapchainDetails getSwapchainDetails(vk::PhysicalDevice device);
 	void createSwapchain();
-	vk::SurfaceFormatKHR chooseBestSurfaceFormat(const vector<vk::SurfaceFormatKHR>& formats);
-	vk::PresentModeKHR chooseBestPresentationMode(const vector<vk::PresentModeKHR>& presentationModes);
-	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities);
+	vk::SurfaceFormatKHR chooseBestSurfaceFormat(const vector<vk::SurfaceFormatKHR> &formats);
+	vk::PresentModeKHR chooseBestPresentationMode(const vector<vk::PresentModeKHR> &presentationModes);
+	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &surfaceCapabilities);
 	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags);
 
 	// Graphics pipeline
 	void createGraphicsPipeline();
-	vk::ShaderModule createShaderModule(const vector<char>& code);
+	vk::ShaderModule createShaderModule(const vector<char> &code);
 	void createRenderPass();
 
 	// Buffers
@@ -169,16 +170,15 @@ private:
 	// Depth
 	void createDepthBufferImage();
 	vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling,
-		vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory);
-	vk::Format chooseSupportedFormat(const vector<vk::Format>& formats, vk::ImageTiling tiling, vk::FormatFeatureFlags featureFlags);
+												vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory *imageMemory);
+	vk::Format chooseSupportedFormat(const vector<vk::Format> &formats, vk::ImageTiling tiling, vk::FormatFeatureFlags featureFlags);
 
 	// Draw
 	void createSynchronisation();
 
 	// Textures
-	int createTexture(const string& filename);
-	int createTextureImage(const string& filename);
+	int createTexture(const string &filename);
+	int createTextureImage(const string &filename);
 	void createTextureSampler();
 	int createTextureDescriptor(vk::ImageView textureImageView);
 };
-
