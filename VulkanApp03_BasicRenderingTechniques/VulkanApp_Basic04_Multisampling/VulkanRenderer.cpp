@@ -441,6 +441,7 @@ void VulkanRenderer::createLogicalDevice()
 	// Features
 	vk::PhysicalDeviceFeatures deviceFeatures{};
 	deviceFeatures.samplerAnisotropy = true;
+	deviceFeatures.sampleRateShading = true;
 	deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
 	// Create the logical device for the given physical device
@@ -821,6 +822,10 @@ void VulkanRenderer::createGraphicsPipeline()
 	multisamplingCreateInfo.sampleShadingEnable = VK_FALSE;
 	// Number of samples to use per fragment
 	multisamplingCreateInfo.rasterizationSamples = msaaSamples;
+	// Enable sample shading in the pipeline
+	multisamplingCreateInfo.sampleShadingEnable = true;
+	// Min fraction for sample shading; closer to one is smoother
+	multisamplingCreateInfo.minSampleShading = 0.2f;
 
 	// -- BLENDING --
 	// How to blend a new color being written to the fragment, with the old value
