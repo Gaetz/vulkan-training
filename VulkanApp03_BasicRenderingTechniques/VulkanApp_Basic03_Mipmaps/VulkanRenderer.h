@@ -141,7 +141,7 @@ private:
 	vk::SurfaceFormatKHR chooseBestSurfaceFormat(const vector<vk::SurfaceFormatKHR> &formats);
 	vk::PresentModeKHR chooseBestPresentationMode(const vector<vk::PresentModeKHR> &presentationModes);
 	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &surfaceCapabilities);
-	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags);
+	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags, uint32_t mipLevels);
 
 	// Graphics pipeline
 	void createGraphicsPipeline();
@@ -169,8 +169,9 @@ private:
 
 	// Depth
 	void createDepthBufferImage();
-	vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling,
-												vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory *imageMemory);
+	vk::Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, 
+		vk::ImageTiling tiling, vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, 
+		vk::DeviceMemory *imageMemory);
 	vk::Format chooseSupportedFormat(const vector<vk::Format> &formats, vk::ImageTiling tiling, vk::FormatFeatureFlags featureFlags);
 
 	// Draw
@@ -178,7 +179,7 @@ private:
 
 	// Textures
 	int createTexture(const string &filename);
-	int createTextureImage(const string &filename);
+	int createTextureImage(const string &filename, uint32_t& mipLevels);
 	void createTextureSampler();
 	int createTextureDescriptor(vk::ImageView textureImageView);
 };
