@@ -244,7 +244,7 @@ void StringArray::Init(u32 size, Allocator* allocator_) {
     char* allocated_memory = (char*)allocator_->Allocate(size + sizeof(FlatHashMap<u64, u32>) + sizeof(FlatHashMapIterator), 1);
     stringToIndex = (FlatHashMap<u64, u32>*)allocated_memory;
     stringToIndex->Init(allocator, 8);
-    stringToIndex->set_default_value(u32Max);
+    stringToIndex->SetDefaultValue(u32Max);
 
     stringsIterator = (FlatHashMapIterator*)(allocated_memory + sizeof(FlatHashMap<u64, u32>));
 
@@ -268,7 +268,7 @@ void StringArray::Clear() {
 }
 
 FlatHashMapIterator* StringArray::BeginStringIteration() {
-    *stringsIterator = stringToIndex->iterator_begin();
+    *stringsIterator = stringToIndex->IteratorBegin();
     return stringsIterator;
 }
 
@@ -277,8 +277,8 @@ sizet StringArray::GetStringCount() const {
 }
 
 cstring StringArray::GetNextString(FlatHashMapIterator* it) const {
-    u32 index = stringToIndex->get(*it);
-    stringToIndex->iterator_advance(*it);
+    u32 index = stringToIndex->Get(*it);
+    stringToIndex->IteratorAdvance(*it);
     cstring string = GetString(index);
     return string;
 }
@@ -298,9 +298,9 @@ cstring StringArray::GetString(u32 index) const {
 cstring StringArray::Intern(cstring string) {
     static sizet seed = 0xf2ea4ffad;
     const sizet length = strlen(string);
-    const sizet hashed_string = hash_bytes((void*)string, length, seed);
+    const sizet hashed_string = HashBytes((void*)string, length, seed);
 
-    u32 stringIndex = stringToIndex->get(hashed_string);
+    u32 stringIndex = stringToIndex->Get(hashed_string);
     if (stringIndex != u32Max) {
         return data + stringIndex;
     }
@@ -312,7 +312,7 @@ cstring StringArray::Intern(cstring string) {
     strcpy_s(data + stringIndex, length + 1, string); /// TODO Test!
 
     // Update hash map
-    stringToIndex->insert(hashed_string, stringIndex);
+    stringToIndex->Insert(hashed_string, stringIndex);
 
     return data + stringIndex;
 }

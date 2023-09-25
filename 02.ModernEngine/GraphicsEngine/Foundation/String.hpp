@@ -21,7 +21,8 @@ struct StringView {
 }; // struct StringView
 
 //
-// Class that preallocates a buffer and appends strings to it. Reserve an additional byte for the null termination when needed.
+// Class that preallocates a buffer and appends strings to it. 
+// Reserve an additional byte for the null termination when needed.
 struct StringBuffer {
 
 	void Init(sizet size, Allocator* allocator);

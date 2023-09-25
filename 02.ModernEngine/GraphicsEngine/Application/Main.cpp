@@ -4,15 +4,8 @@
 
 
 int main() {
-	GPrint("Test");
+	u32 a = BitSlot8(8);
+	PrintBinary(a);
 
-	/*
-	HeapAllocator allo;
-	allo.Init(16);
-	BitSet u16;
-	u16.Init(&allo, 16);
-	u16.SetBit(4);
-	u16.Resize(32);
-	*/
 	return 0;
 }

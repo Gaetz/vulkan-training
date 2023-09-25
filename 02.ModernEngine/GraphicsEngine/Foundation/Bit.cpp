@@ -89,8 +89,10 @@ void BitSet::Shutdown() {
 }
 
 void BitSet::Resize(u32 totalBits) {
+    // Save previous data if any
     u8* oldBits = bits;
 
+    // Compute new size in bytes
     const u32 newSize = (totalBits + 7) / 8;
     if (size == newSize) {
         return;
@@ -98,6 +100,7 @@ void BitSet::Resize(u32 totalBits) {
 
     bits = (u8*)GAllocaM(newSize, allocator);
 
+    // Put back previous data if any, else fill with zeroes
     if (oldBits) {
         memcpy(bits, oldBits, size);
         GFree(oldBits, allocator);

@@ -72,86 +72,101 @@ void PrintBinary(u32 n);
 /// <typeparam name="Shift"></typeparam>
 template <class T, int SignificantBits, int Shift = 0>
 class BitMask {
-    //static_assert( std::is_unsigned<T>::value, "" );
-    //static_assert( Shift == 0 || Shift == 3, "" );
+	//static_assert( std::is_unsigned<T>::value, "" );
+	//static_assert( Shift == 0 || Shift == 3, "" );
 
 public:
-    // These are useful for unit tests (gunit).
-    using value_type = int;
-    using iterator = BitMask;
-    using const_iterator = BitMask;
+	// These are useful for unit tests (gunit).
+	using value_type = int;
+	using iterator = BitMask;
+	using const_iterator = BitMask;
 
-    explicit BitMask(T maskP) : mask(maskP) {
-    }
+	explicit BitMask(T maskP) : mask(maskP) {
+	}
 
-    BitMask& operator++() {
-        mask &= (mask - 1);
-        return *this;
-    }
+	BitMask& operator++() {
+		mask &= (mask - 1);
+		return *this;
+	}
 
-    explicit operator bool() const {
-        return mask != 0;
-    }
+	explicit operator bool() const {
+		return mask != 0;
+	}
 
-    int operator*() const {
-        return LowestBitSet();
-    }
+	int operator*() const {
+		return LowestBitSet();
+	}
 
-    uint32_t LowestBitSet() const {
-        return TrailingZerosU32(mask) >> Shift;
-    }
+	uint32_t LowestBitSet() const {
+		return TrailingZerosU32(mask) >> Shift;
+	}
 
-    uint32_t HighestBitSet() const {
-        return static_cast<uint32_t>((bit_width(mask) - 1) >> Shift);
-    }
+	uint32_t HighestBitSet() const {
+		return static_cast<uint32_t>((bit_width(mask) - 1) >> Shift);
+	}
 
-    BitMask begin() const {
-        return *this;
-    }
+	BitMask begin() const {
+		return *this;
+	}
 
-    BitMask end() const {
-        return BitMask(0);
-    }
+	BitMask end() const {
+		return BitMask(0);
+	}
 
-    uint32_t TrailingZeros() const {
-        return TrailingZerosU32(mask);// >> Shift;
-    }
+	uint32_t TrailingZeros() const {
+		return TrailingZerosU32(mask);// >> Shift;
+	}
 
-    uint32_t LeadingZeros() const {
-        return LeadingZeroesU32(mask);// >> Shift;
-    }
+	uint32_t LeadingZeros() const {
+		return LeadingZeroesU32(mask);// >> Shift;
+	}
 
 private:
-    friend bool operator==(const BitMask& a, const BitMask& b) {
-        return a.mask == b.mask;
-    }
-    friend bool operator!=(const BitMask& a, const BitMask& b) {
-        return a.mask != b.mask;
-    }
+	friend bool operator==(const BitMask& a, const BitMask& b) {
+		return a.mask == b.mask;
+	}
+	friend bool operator!=(const BitMask& a, const BitMask& b) {
+		return a.mask != b.mask;
+	}
 
-    T mask;
+	T mask;
 }; // class BitMask
 
 // Utility methods
+
+/// <summary>
+/// Returns a number modulo the first 8 bits
+/// </summary>
+/// <param name="bit">Number</param>
+/// <returns>A number on 8 bits</returns>
 inline u32 BitMask8(u32 bit) { return 1 << (bit & 7); }
+
 inline u32 BitSlot8(u32 bit) { return bit / 8; }
 
 //
 //
 struct BitSet {
 
-    void Init(Allocator* allocator, u32 total_bits);
-    void Shutdown();
+	void Init(Allocator* allocator, u32 totalBits);
+	void Shutdown();
 
-    void Resize(u32 total_bits);
+	void Resize(u32 totalBits);
 
-    void SetBit(u32 index) { bits[index / 8] |= BitMask8(index); }
-    void ClearBit(u32 index) { bits[index / 8] &= ~BitMask8(index); }
-    u8 GetBit(u32 index) { return bits[index / 8] & BitMask8(index); }
+	void SetBit(u32 index) {
+		bits[index / 8] |= BitMask8(index);
+	}
 
-    Allocator* allocator = nullptr;
-    u8* bits = nullptr;
-    u32 size = 0;
+	void ClearBit(u32 index) {
+		bits[index / 8] &= ~BitMask8(index);
+	}
+
+	u8 GetBit(u32 index) {
+		return bits[index / 8] & BitMask8(index);
+	}
+
+	Allocator* allocator = nullptr;
+	u8* bits = nullptr;
+	u32 size = 0;
 
 }; // struct BitSet
 
@@ -160,11 +175,11 @@ struct BitSet {
 template <u32 SizeInBytes>
 struct BitSetFixed {
 
-    void SetBit(u32 index) { bits[index / 8] |= BitMask8(index); }
-    void ClearBit(u32 index) { bits[index / 8] &= ~BitMask8(index); }
-    u8 GetBit(u32 index) { return bits[index / 8] & BitMask8(index); }
+	void SetBit(u32 index) { bits[index / 8] |= BitMask8(index); }
+	void ClearBit(u32 index) { bits[index / 8] &= ~BitMask8(index); }
+	u8 GetBit(u32 index) { return bits[index / 8] & BitMask8(index); }
 
-    u8 bits[SizeInBytes];
+	u8 bits[SizeInBytes];
 
 }; // struct BitSetFixed
 

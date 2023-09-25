@@ -206,8 +206,8 @@ void* HeapAllocator::Allocate(sizet size, sizet alignment) {
 void* HeapAllocator::Allocate(sizet size, sizet alignment) {
 #if defined (HEAP_ALLOCATOR_STATS)
     void* allocatedMemory = alignment == 1 ? tlsf_malloc(tlsfHandle, size) : tlsf_memalign(tlsfHandle, alignment, size);
-    sizet actual_size = tlsf_block_size(allocatedMemory);
-    allocatedSize += actual_size;
+    sizet actualSize = tlsf_block_size(allocatedMemory);
+    allocatedSize += actualSize;
 
     /*if ( size == 52224 ) {
         return allocatedMemory;
