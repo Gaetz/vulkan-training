@@ -3,13 +3,13 @@
 #include "memory.hpp"
 #include "assert.hpp"
 
-#include "tlsf.h"
+#include "../external/tlsf.h"
 
 #include <stdlib.h>
 #include <memory.h>
 
 #if defined G_IMGUI
-#include "imgui/imgui.h"
+#include "../external/imgui/imgui.h"
 #endif // G_IMGUI
 
 // Define this and add StackWalker to heavy memory profile

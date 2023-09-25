@@ -298,7 +298,7 @@ cstring StringArray::GetString(u32 index) const {
 cstring StringArray::Intern(cstring string) {
     static sizet seed = 0xf2ea4ffad;
     const sizet length = strlen(string);
-    const sizet hashed_string = raptor::hash_bytes((void*)string, length, seed);
+    const sizet hashed_string = hash_bytes((void*)string, length, seed);
 
     u32 stringIndex = stringToIndex->get(hashed_string);
     if (stringIndex != u32Max) {
@@ -308,7 +308,8 @@ cstring StringArray::Intern(cstring string) {
     stringIndex = currentSize;
     // Increase current buffer with new interned string
     currentSize += (u32)length + 1; // null termination
-    strcpy(data + stringIndex, string);
+    //strcpy(data + stringIndex, string);
+    strcpy_s(data + stringIndex, length + 1, string); /// TODO Test!
 
     // Update hash map
     stringToIndex->insert(hashed_string, stringIndex);

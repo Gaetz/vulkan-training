@@ -19,7 +19,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\imgui\imconfig.h" />
+    <ClInclude Include="..\external\imgui\imgui.h" />
+    <ClInclude Include="..\external\imgui\imgui_impl_sdl.h" />
+    <ClInclude Include="..\external\imgui\imgui_internal.h" />
+    <ClInclude Include="..\external\imgui\imgui_memory_editor.h" />
+    <ClInclude Include="..\external\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\external\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\external\imgui\imstb_truetype.h" />
+    <ClInclude Include="..\external\imgui\stb_image.h" />
+    <ClInclude Include="..\external\imgui\TextEditor.h" />
+    <ClInclude Include="..\external\tlsf.h" />
+    <ClInclude Include="..\external\wyhash.h" />
     <ClInclude Include="Assert.hpp" />
+    <ClInclude Include="Bit.hpp" />
+    <ClInclude Include="HashMap.hpp" />
     <ClInclude Include="Log.hpp" />
     <ClInclude Include="Memory.hpp" />
     <ClInclude Include="Platform.hpp" />
@@ -28,6 +42,15 @@
     <ClInclude Include="WindowsDeclarations.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\external\imgui\imgui.cpp" />
+    <ClCompile Include="..\external\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\external\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\external\imgui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="..\external\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\external\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\external\imgui\TextEditor.cpp" />
+    <ClCompile Include="..\external\tlsf.c" />
+    <ClCompile Include="Bit.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Memory.cpp" />
     <ClCompile Include="String.cpp" />
@@ -85,7 +108,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)\external;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\lib\SDL2-2.0.18\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)\lib\SDL2-2.0.18\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -129,6 +153,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>

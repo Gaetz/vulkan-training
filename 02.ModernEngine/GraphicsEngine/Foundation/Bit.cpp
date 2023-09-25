@@ -49,13 +49,15 @@ u64 TrailingZerosU64(u64 x) {
 }
 
 u32 RoundUpToPowerOf2(u32 v) {
-
+    // Take 32 minus the number of zeros before first active bit. We 
+    // need to get a binary number with a 1 before this first zero, 
+    // then a serie of zeroes. So we shift once left.
     u32 nv = 1 << (32 - LeadingZeroesU32(v));
     return nv;
 }
 void PrintBinary(u64 n) {
-
     GPrint("0b");
+    // Print each bit one by one from the end
     for (u32 i = 0; i < 64; ++i) {
         u64 bit = (n >> (64 - i - 1)) & 0x1;
         GPrint("%llu", bit);
@@ -64,8 +66,8 @@ void PrintBinary(u64 n) {
 }
 
 void PrintBinary(u32 n) {
-
     GPrint("0b");
+    // Print each bit one by one from the end
     for (u32 i = 0; i < 32; ++i) {
         u32 bit = (n >> (32 - i - 1)) & 0x1;
         GPrint("%u", bit);
@@ -74,35 +76,35 @@ void PrintBinary(u32 n) {
 }
 
 // BitSet //
-void BitSet::Init(Allocator* allocator_, u32 total_bits) {
+void BitSet::Init(Allocator* allocator_, u32 totalBits) {
     allocator = allocator_;
     bits = nullptr;
     size = 0;
 
-    Resize(total_bits);
+    Resize(totalBits);
 }
 
 void BitSet::Shutdown() {
     GFree(bits, allocator);
 }
 
-void BitSet::Resize(u32 total_bits) {
-    u8* old_bits = bits;
+void BitSet::Resize(u32 totalBits) {
+    u8* oldBits = bits;
 
-    const u32 new_size = (total_bits + 7) / 8;
-    if (size == new_size) {
+    const u32 newSize = (totalBits + 7) / 8;
+    if (size == newSize) {
         return;
     }
 
-    bits = (u8*)GAllocaM(new_size, allocator);
+    bits = (u8*)GAllocaM(newSize, allocator);
 
-    if (old_bits) {
-        memcpy(bits, old_bits, size);
-        GFree(old_bits, allocator);
+    if (oldBits) {
+        memcpy(bits, oldBits, size);
+        GFree(oldBits, allocator);
     }
     else {
-        memset(bits, 0, new_size);
+        memset(bits, 0, newSize);
     }
 
-    size = new_size;
+    size = newSize;
 }

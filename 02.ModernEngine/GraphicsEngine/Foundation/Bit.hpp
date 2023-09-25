@@ -105,11 +105,11 @@ public:
         return static_cast<uint32_t>((bit_width(mask) - 1) >> Shift);
     }
 
-    BitMask Begin() const {
+    BitMask begin() const {
         return *this;
     }
 
-    BitMask End() const {
+    BitMask end() const {
         return BitMask(0);
     }
 
