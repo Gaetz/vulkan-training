@@ -99,7 +99,7 @@ inline void Array<T>::Init(Allocator* allocator_, u32 initialCapacity, u32 initi
 template<typename T>
 inline void Array<T>::Shutdown() {
     if (capacity > 0) {
-        allocator->deallocate(data);
+        allocator->Deallocate(data);
     }
     data = nullptr;
     size = capacity = 0;
