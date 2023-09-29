@@ -34,7 +34,7 @@
 static MemoryService    sMemoryService;
 
 // Locals
-static sizet sSize = RMega(32) + tlsf_size() + 8;
+static sizet sSize = GMega(32) + tlsf_size() + 8;
 
 //
 // Walker methods

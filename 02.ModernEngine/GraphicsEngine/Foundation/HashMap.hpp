@@ -15,14 +15,14 @@ static const u64 kIteratorEnd = u64Max;
 //
 struct FindInfo {
 	u64 offset;
-	u64 probe_length;
+	u64 probeLength;
 }; // struct FindInfo
 
 //
 //
 struct FindResult {
 	u64 index;
-	bool free_index;  // States if the index is free or used.
+	bool freeIndex;  // States if the index is free or used.
 }; // struct FindResult
 
 //
@@ -30,8 +30,8 @@ struct FindResult {
 struct FlatHashMapIterator {
 	u64 index;
 
-	bool is_valid() const { return index != kIteratorEnd; }
-	bool is_invalid() const { return index == kIteratorEnd; }
+	bool isValid() const { return index != kIteratorEnd; }
+	bool isInvalid() const { return index == kIteratorEnd; }
 }; // struct FlatHashMapIterator
 
 // A single block of empty control bytes for tables without any slots allocated.
@@ -42,8 +42,8 @@ i8* GroupInitEmpty();
 // Probing ////////////////////////////////////////////////////////////
 struct ProbeSequence {
 
-	static const u64 k_width = 16;   // TODO: this should be selectable.
-	static const sizet k_engine_hash = 0x31d3a36013e;
+	static const u64 kWidth = 16;   // TODO: this should be selectable.
+	static const sizet kEngineHash = 0x31d3a36013e;
 
 	ProbeSequence(u64 hash, u64 mask);
 
@@ -65,8 +65,8 @@ template <typename K, typename V>
 struct FlatHashMap {
 
 	struct KeyValue {
-		K    key;
-		V    value;
+		K key;
+		V value;
 	}; // struct KeyValue
 
 	void Init(Allocator* allocator, u64 initial_capacity);
@@ -338,7 +338,7 @@ FlatHashMapIterator FlatHashMap<K, V>::find(const K& key) {
 template <typename K, typename V>
 void FlatHashMap<K, V>::Insert(const K& key, const V& value) {
 	const FindResult find_result = FindOrPrepareInsert(key);
-	if (find_result.free_index) {
+	if (find_result.freeIndex) {
 		// Emplace
 		slots_[find_result.index].key = key;
 		slots_[find_result.index].value = value;
@@ -483,7 +483,7 @@ void FlatHashMap<K, V>::DropDeletesWithoutResize() {
 	//ConvertDeletedToEmptyAndFullToDeleted( controlBytes, capacity );
 
 	alignas(KeyValue) unsigned char raw[sizeof(KeyValue)];
-	size_t total_probe_length = 0;
+	size_t totalProbeLength = 0;
 	KeyValue* slot = reinterpret_cast<KeyValue*>(&raw);
 	for (size_t i = 0; i != capacity; ++i) {
 		if (!ControlIsDeleted(controlBytes[i])) {
@@ -493,37 +493,37 @@ void FlatHashMap<K, V>::DropDeletesWithoutResize() {
 		const KeyValue* current_slot = slots_ + i;
 		size_t hash = HashCalculate(current_slot->key);
 		auto target = FindFirstNonFull(hash);
-		size_t new_i = target.offset;
-		total_probe_length += target.probe_length;
+		size_t newI = target.offset;
+		totalProbeLength += target.probeLength;
 
 		// Verify if the old and new i fall within the same group wrt the hash.
 		// If they do, we don't need to move the object as it falls already in the
 		// best probe we can.
-		const auto probe_index = [&](size_t pos) {
+		const auto probeIndex = [&](size_t pos) {
 			return ((pos - Probe(hash).GetOffset()) & capacity) / GroupSse2Impl::kWidth;
 			};
 
 		// Element doesn't move.
-		if ((probe_index(new_i) == probe_index(i))) {
+		if ((probeIndex(newI) == probeIndex(i))) {
 			SetCtrl(i, Hash2(hash));
 			continue;
 		}
-		if (ControlIsEmpty(controlBytes[new_i])) {
+		if (ControlIsEmpty(controlBytes[newI])) {
 			// Transfer element to the empty spot.
 			// SetCtrl poisons/unpoisons the slots so we have to call it at the
 			// right time.
-			SetCtrl(new_i, Hash2(hash));
-			memcpy(slots_ + new_i, slots_ + i, sizeof(KeyValue));
+			SetCtrl(newI, Hash2(hash));
+			memcpy(slots_ + newI, slots_ + i, sizeof(KeyValue));
 			SetCtrl(i, k_control_bitmask_empty);
 		}
 		else {
-			//assert( ControlIsDeleted( controlBytes[ new_i ] ) );
-			SetCtrl(new_i, Hash2(hash));
+			//assert( ControlIsDeleted( controlBytes[ newI ] ) );
+			SetCtrl(newI, Hash2(hash));
 			// Until we are done rehashing, DELETED marks previously FULL slots.
-			// Swap i and new_i elements.
+			// Swap i and newI elements.
 			memcpy(slot, slots_ + i, sizeof(KeyValue));
-			memcpy(slots_ + i, slots_ + new_i, sizeof(KeyValue));
-			memcpy(slots_ + new_i, slot, sizeof(KeyValue));
+			memcpy(slots_ + i, slots_ + newI, sizeof(KeyValue));
+			memcpy(slots_ + newI, slot, sizeof(KeyValue));
 			--i;  // repeat
 		}
 	}
@@ -551,33 +551,33 @@ void FlatHashMap<K, V>::InitializeSlots() {
 template <typename K, typename V>
 void FlatHashMap<K, V>::Resize(u64 new_capacity) {
 	//assert( IsValidCapacity( new_capacity ) );
-	i8* old_control_bytes = controlBytes;
-	KeyValue* old_slots = slots_;
-	const u64 old_capacity = capacity;
+	i8* oldControlBytes = controlBytes;
+	KeyValue* oldSlots = slots_;
+	const u64 oldCapacity = capacity;
 
 	capacity = new_capacity;
 
 	InitializeSlots();
 
-	size_t total_probe_length = 0;
-	for (size_t i = 0; i != old_capacity; ++i) {
-		if (ControlIsFull(old_control_bytes[i])) {
-			const KeyValue* old_value = old_slots + i;
-			u64 hash = HashCalculate(old_value->key);
+	size_t totalProbeLength = 0;
+	for (size_t i = 0; i != oldCapacity; ++i) {
+		if (ControlIsFull(oldControlBytes[i])) {
+			const KeyValue* oldValue = oldSlots + i;
+			u64 hash = HashCalculate(oldValue->key);
 
-			FindInfo find_info = FindFirstNonFull(hash);
+			FindInfo findInfo = FindFirstNonFull(hash);
 
-			u64 new_i = find_info.offset;
-			total_probe_length += find_info.probe_length;
+			u64 newI = findInfo.offset;
+			totalProbeLength += findInfo.probeLength;
 
-			SetCtrl(new_i, Hash2(hash));
+			SetCtrl(newI, Hash2(hash));
 
-			MemoryCopy(slots_ + new_i, old_slots + i, sizeof(KeyValue));
+			MemoryCopy(slots_ + newI, oldSlots + i, sizeof(KeyValue));
 		}
 	}
 
-	if (old_capacity) {
-		GFree(old_control_bytes, allocator);
+	if (oldCapacity) {
+		GFree(oldControlBytes, allocator);
 	}
 }
 
@@ -730,7 +730,7 @@ inline u64 ProbeSequence::GetIndex() const {
 }
 
 inline void ProbeSequence::Next() {
-	index += k_width;
+	index += kWidth;
 	offset += index;
 	offset &= mask;
 }

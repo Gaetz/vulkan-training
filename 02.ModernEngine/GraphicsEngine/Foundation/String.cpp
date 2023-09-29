@@ -284,7 +284,7 @@ cstring StringArray::GetNextString(FlatHashMapIterator* it) const {
 }
 
 bool StringArray::HasNextString(FlatHashMapIterator* it) const {
-    return it->is_valid();
+    return it->isValid();
 }
 
 cstring StringArray::GetString(u32 index) const {

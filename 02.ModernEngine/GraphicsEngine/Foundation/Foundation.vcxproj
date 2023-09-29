@@ -19,6 +19,141 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\cglm\affine-mat.h" />
+    <ClInclude Include="..\external\cglm\affine.h" />
+    <ClInclude Include="..\external\cglm\affine2d.h" />
+    <ClInclude Include="..\external\cglm\applesimd.h" />
+    <ClInclude Include="..\external\cglm\bezier.h" />
+    <ClInclude Include="..\external\cglm\box.h" />
+    <ClInclude Include="..\external\cglm\call.h" />
+    <ClInclude Include="..\external\cglm\call\affine.h" />
+    <ClInclude Include="..\external\cglm\call\affine2d.h" />
+    <ClInclude Include="..\external\cglm\call\bezier.h" />
+    <ClInclude Include="..\external\cglm\call\box.h" />
+    <ClInclude Include="..\external\cglm\call\cam.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\ortho_lh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\ortho_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\ortho_rh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\ortho_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\persp_lh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\persp_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\persp_rh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\persp_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\project_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\project_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\view_lh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\view_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\view_rh_no.h" />
+    <ClInclude Include="..\external\cglm\call\clipspace\view_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\call\curve.h" />
+    <ClInclude Include="..\external\cglm\call\ease.h" />
+    <ClInclude Include="..\external\cglm\call\euler.h" />
+    <ClInclude Include="..\external\cglm\call\frustum.h" />
+    <ClInclude Include="..\external\cglm\call\io.h" />
+    <ClInclude Include="..\external\cglm\call\mat2.h" />
+    <ClInclude Include="..\external\cglm\call\mat3.h" />
+    <ClInclude Include="..\external\cglm\call\mat4.h" />
+    <ClInclude Include="..\external\cglm\call\plane.h" />
+    <ClInclude Include="..\external\cglm\call\project.h" />
+    <ClInclude Include="..\external\cglm\call\quat.h" />
+    <ClInclude Include="..\external\cglm\call\ray.h" />
+    <ClInclude Include="..\external\cglm\call\sphere.h" />
+    <ClInclude Include="..\external\cglm\call\vec2.h" />
+    <ClInclude Include="..\external\cglm\call\vec3.h" />
+    <ClInclude Include="..\external\cglm\call\vec4.h" />
+    <ClInclude Include="..\external\cglm\cam.h" />
+    <ClInclude Include="..\external\cglm\cglm.h" />
+    <ClInclude Include="..\external\cglm\clipspace\ortho_lh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\ortho_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\ortho_rh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\ortho_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\persp.h" />
+    <ClInclude Include="..\external\cglm\clipspace\persp_lh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\persp_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\persp_rh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\persp_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\project_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\project_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_lh.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_lh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_rh.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_rh_no.h" />
+    <ClInclude Include="..\external\cglm\clipspace\view_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\color.h" />
+    <ClInclude Include="..\external\cglm\common.h" />
+    <ClInclude Include="..\external\cglm\curve.h" />
+    <ClInclude Include="..\external\cglm\ease.h" />
+    <ClInclude Include="..\external\cglm\euler.h" />
+    <ClInclude Include="..\external\cglm\frustum.h" />
+    <ClInclude Include="..\external\cglm\io.h" />
+    <ClInclude Include="..\external\cglm\mat2.h" />
+    <ClInclude Include="..\external\cglm\mat3.h" />
+    <ClInclude Include="..\external\cglm\mat4.h" />
+    <ClInclude Include="..\external\cglm\plane.h" />
+    <ClInclude Include="..\external\cglm\project.h" />
+    <ClInclude Include="..\external\cglm\quat.h" />
+    <ClInclude Include="..\external\cglm\ray.h" />
+    <ClInclude Include="..\external\cglm\simd\arm.h" />
+    <ClInclude Include="..\external\cglm\simd\avx\affine.h" />
+    <ClInclude Include="..\external\cglm\simd\avx\mat4.h" />
+    <ClInclude Include="..\external\cglm\simd\intrin.h" />
+    <ClInclude Include="..\external\cglm\simd\neon\affine.h" />
+    <ClInclude Include="..\external\cglm\simd\neon\mat2.h" />
+    <ClInclude Include="..\external\cglm\simd\neon\mat4.h" />
+    <ClInclude Include="..\external\cglm\simd\neon\quat.h" />
+    <ClInclude Include="..\external\cglm\simd\sse2\affine.h" />
+    <ClInclude Include="..\external\cglm\simd\sse2\mat2.h" />
+    <ClInclude Include="..\external\cglm\simd\sse2\mat3.h" />
+    <ClInclude Include="..\external\cglm\simd\sse2\mat4.h" />
+    <ClInclude Include="..\external\cglm\simd\sse2\quat.h" />
+    <ClInclude Include="..\external\cglm\simd\x86.h" />
+    <ClInclude Include="..\external\cglm\sphere.h" />
+    <ClInclude Include="..\external\cglm\struct.h" />
+    <ClInclude Include="..\external\cglm\struct\affine.h" />
+    <ClInclude Include="..\external\cglm\struct\affine2d.h" />
+    <ClInclude Include="..\external\cglm\struct\box.h" />
+    <ClInclude Include="..\external\cglm\struct\cam.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\ortho_lh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\ortho_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\ortho_rh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\ortho_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\persp_lh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\persp_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\persp_rh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\persp_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\view_lh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\view_lh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\view_rh_no.h" />
+    <ClInclude Include="..\external\cglm\struct\clipspace\view_rh_zo.h" />
+    <ClInclude Include="..\external\cglm\struct\color.h" />
+    <ClInclude Include="..\external\cglm\struct\curve.h" />
+    <ClInclude Include="..\external\cglm\struct\euler.h" />
+    <ClInclude Include="..\external\cglm\struct\frustum.h" />
+    <ClInclude Include="..\external\cglm\struct\io.h" />
+    <ClInclude Include="..\external\cglm\struct\mat2.h" />
+    <ClInclude Include="..\external\cglm\struct\mat3.h" />
+    <ClInclude Include="..\external\cglm\struct\mat4.h" />
+    <ClInclude Include="..\external\cglm\struct\plane.h" />
+    <ClInclude Include="..\external\cglm\struct\project.h" />
+    <ClInclude Include="..\external\cglm\struct\quat.h" />
+    <ClInclude Include="..\external\cglm\struct\sphere.h" />
+    <ClInclude Include="..\external\cglm\struct\vec2-ext.h" />
+    <ClInclude Include="..\external\cglm\struct\vec2.h" />
+    <ClInclude Include="..\external\cglm\struct\vec3-ext.h" />
+    <ClInclude Include="..\external\cglm\struct\vec3.h" />
+    <ClInclude Include="..\external\cglm\struct\vec4-ext.h" />
+    <ClInclude Include="..\external\cglm\struct\vec4.h" />
+    <ClInclude Include="..\external\cglm\types-struct.h" />
+    <ClInclude Include="..\external\cglm\types.h" />
+    <ClInclude Include="..\external\cglm\util.h" />
+    <ClInclude Include="..\external\cglm\vec2-ext.h" />
+    <ClInclude Include="..\external\cglm\vec2.h" />
+    <ClInclude Include="..\external\cglm\vec3-ext.h" />
+    <ClInclude Include="..\external\cglm\vec3.h" />
+    <ClInclude Include="..\external\cglm\vec4-ext.h" />
+    <ClInclude Include="..\external\cglm\vec4.h" />
+    <ClInclude Include="..\external\cglm\version.h" />
     <ClInclude Include="..\external\imgui\imconfig.h" />
     <ClInclude Include="..\external\imgui\imgui.h" />
     <ClInclude Include="..\external\imgui\imgui_impl_sdl.h" />
@@ -29,16 +164,31 @@
     <ClInclude Include="..\external\imgui\imstb_truetype.h" />
     <ClInclude Include="..\external\imgui\stb_image.h" />
     <ClInclude Include="..\external\imgui\TextEditor.h" />
+    <ClInclude Include="..\external\json.hpp" />
     <ClInclude Include="..\external\tlsf.h" />
     <ClInclude Include="..\external\wyhash.h" />
+    <ClInclude Include="Array.hpp" />
     <ClInclude Include="Assert.hpp" />
     <ClInclude Include="Bit.hpp" />
+    <ClInclude Include="Blob.hpp" />
+    <ClInclude Include="BlobSerialization.hpp" />
+    <ClInclude Include="Camera.hpp" />
+    <ClInclude Include="Color.hpp" />
+    <ClInclude Include="DataStructures.hpp" />
+    <ClInclude Include="File.hpp" />
+    <ClInclude Include="Gltf.hpp" />
     <ClInclude Include="HashMap.hpp" />
     <ClInclude Include="Log.hpp" />
     <ClInclude Include="Memory.hpp" />
+    <ClInclude Include="Numerics.hpp" />
     <ClInclude Include="Platform.hpp" />
+    <ClInclude Include="Process.hpp" />
+    <ClInclude Include="RelativeDataStructure.hpp" />
+    <ClInclude Include="ResourceManager.hpp" />
     <ClInclude Include="Service.hpp" />
+    <ClInclude Include="ServiceManager.hpp" />
     <ClInclude Include="String.hpp" />
+    <ClInclude Include="Time.hpp" />
     <ClInclude Include="WindowsDeclarations.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -51,9 +201,23 @@
     <ClCompile Include="..\external\imgui\TextEditor.cpp" />
     <ClCompile Include="..\external\tlsf.c" />
     <ClCompile Include="Bit.cpp" />
+    <ClCompile Include="BlobSerialization.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Color.cpp" />
+    <ClCompile Include="DataStructures.cpp" />
+    <ClCompile Include="File.cpp" />
+    <ClCompile Include="Gltf.cpp" />
     <ClCompile Include="Log.cpp" />
     <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="Numerics.cpp" />
+    <ClCompile Include="Process.cpp" />
+    <ClCompile Include="ResourceManager.cpp" />
+    <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="String.cpp" />
+    <ClCompile Include="Time.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\external\cglm\LICENSE" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -149,7 +313,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>

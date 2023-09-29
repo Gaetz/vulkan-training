@@ -196,5 +196,5 @@ struct MemoryService : public Service {
 #define GFree(pointer, allocator) (allocator)->Deallocate(pointer)
 
 #define GKilo(size)                 (size * 1024)
-#define RMega(size)                 (size * 1024 * 1024)
-#define RGiga(size)                 (size * 1024 * 1024 * 1024)
+#define GMega(size)                 (size * 1024 * 1024)
+#define GGiga(size)                 (size * 1024 * 1024 * 1024)
