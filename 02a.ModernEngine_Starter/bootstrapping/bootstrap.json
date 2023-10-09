@@ -1,0 +1,35 @@
+[
+{
+    "name": "libjpeg",
+    "source": {
+        "type": "archive",
+        "url": "http://www.ijg.org/files/jpegsrc.v9d.tar.gz",
+        "sha1": "19b32a12988eae920d142243373841ed78cd4374",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36"
+    }
+},
+{
+    "name": "nestegg",
+    "source": {
+        "type": "git",
+        "url": "https://github.com/kinetiknz/nestegg",
+        "revision": "8374e436ad90afd61919ffe27aa5ff2887feacba"
+    },
+    "postprocess": {
+        "type": "script",
+        "file": "libnestegg.py"
+    }
+},
+{
+    "name": "libmodplug",
+    "source": {
+        "type": "archive",
+        "url": "http://downloads.sourceforge.net/project/modplug-xmms/libmodplug/0.8.8.5/libmodplug-0.8.8.5.tar.gz",
+        "sha1": "771ee75bb8bfcfe95eae434ed1f3b2c5b63b2cb3"
+    },
+    "postprocess": {
+        "type": "patch",
+        "file": "libmodplug_771ee75bb8bfcfe95eae434ed1f3b2c5b63b2cb3.patch"
+    }
+}
+]
