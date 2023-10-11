@@ -275,6 +275,13 @@ struct GpuDevice : public Service {
     uint32_t                        vulkan_queue_family;
     VkDescriptorPool                vulkan_descriptor_pool;
 
+    // [TAG: BINDLESS]
+    VkDescriptorPool                vulkan_bindless_descriptor_pool;
+    // Global bindless descriptor layout.
+    VkDescriptorSetLayout           vulkan_bindless_descriptor_layout;
+    // Global bindless descriptor set.
+    VkDescriptorSet                 vulkan_bindless_descriptor_set;
+
     // Swapchain
     VkImage                         vulkan_swapchain_images[ k_max_swapchain_images ];
     VkImageView                     vulkan_swapchain_image_views[ k_max_swapchain_images ];
@@ -307,6 +314,8 @@ struct GpuDevice : public Service {
     // These are dynamic - so that workload can be handled correctly.
     Array<ResourceUpdate>           resource_deletion_queue;
     Array<DescriptorSetUpdate>      descriptor_set_updates;
+    // [TAG: BINDLESS]
+    Array<ResourceUpdate>           texture_to_update_bindless;
 
     f32                             gpu_timestamp_frequency;
     bool                            gpu_timestamp_reset             = true;

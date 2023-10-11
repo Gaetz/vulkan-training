@@ -531,7 +531,7 @@ void GpuDevice::init( const DeviceCreation& creation ) {
     vkCreateQueryPool( vulkan_device, &vqpci, vulkan_allocation_callbacks, &vulkan_timestamp_query_pool );
 
     //// Init pools
-    buffers.init( allocator, 4096, sizeof( Buffer ) );
+    buffers.init( allocator, 1024, sizeof( Buffer ) );
     textures.init( allocator, 512, sizeof( Texture ) );
     render_passes.init( allocator, 256, sizeof( RenderPass ) );
     descriptor_set_layouts.init( allocator, 128, sizeof( DesciptorSetLayout ) );

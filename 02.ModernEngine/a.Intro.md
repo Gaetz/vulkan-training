@@ -1,6 +1,10 @@
-# Introduction to modern rendering with Vulkan
+# Lesson 1 : Introduction to modern rendering with Vulkan
 
 The goal of this course is to study modern rendering techniques, that involve both graphics and engine code. As a base, it uses a existing engine, called raptor engine. You will go from there and add features in the engine, learning more each step of the lesson.
+
+## Project
+
+You will find the starter engine in the 02b.ModernEngine_Starter folder.
 
 ## Analysis of the starter engine
 
