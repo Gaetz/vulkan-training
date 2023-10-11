@@ -95,7 +95,7 @@ void CommandBufferRing::init( GpuDevice* gpu_ ) {
         cmd.commandBufferCount = 1;
         check( vkAllocateCommandBuffers( gpu->vulkan_device, &cmd, &command_buffers[ i ].vk_command_buffer ) );
 
-        command_buffers[ i ].device = gpu;
+        command_buffers[ i ].gpu_device = gpu;
         command_buffers[ i ].handle = i;
         command_buffers[ i ].reset();
     }
@@ -189,23 +189,17 @@ static const char* s_requested_layers[] = {
 
 #ifdef VULKAN_DEBUG_REPORT
 
-// Old debug callback.
-//static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback( VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, u64 object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData ) {
-//    (void)flags; (void)object; (void)location; (void)messageCode; (void)pUserData; (void)pLayerPrefix; // Unused arguments
-//    rprint( "[vulkan] ObjectType: %i\nMessage: %s\n\n", objectType, pMessage );
-//    return VK_FALSE;
-//}
-
 static VkBool32 debug_utils_callback( VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                                                             VkDebugUtilsMessageTypeFlagsEXT types,
                                                             const VkDebugUtilsMessengerCallbackDataEXT* callback_data,
                                                             void* user_data ) {
-    rprint( " MessageID: %s %i\nMessage: %s\n\n", callback_data->pMessageIdName, callback_data->messageIdNumber, callback_data->pMessage );
+    bool triggerBreak = severity & (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
 
-    if ( severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT ) {
+    if (triggerBreak) {
         // __debugbreak();
     }
 
+    rprint(" MessageID: %s %i\nMessage: %s\n\n", callback_data->pMessageIdName, callback_data->messageIdNumber, callback_data->pMessage);
     return VK_FALSE;
 }
 
@@ -326,19 +320,6 @@ void GpuDevice::init( const DeviceCreation& creation ) {
         if ( !debug_utils_extension_present ) {
             rprint( "Extension %s for debugging non present.", VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
         } else {
-            //// Create debug callback
-            //auto vkCreateDebugReportCallbackEXT = ( PFN_vkCreateDebugReportCallbackEXT )vkGetInstanceProcAddr( vulkan_instance, "vkCreateDebugReportCallbackEXT" );
-            //RASSERT( vkCreateDebugReportCallbackEXT != NULL, "" );
-
-            //// Setup the debug report callback
-            /*VkDebugReportCallbackCreateInfoEXT debug_report_ci = {};
-            debug_report_ci.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-            debug_report_ci.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-            debug_report_ci.pfnCallback = debug_callback;
-            debug_report_ci.pUserData = NULL;
-            result = vkCreateDebugReportCallbackEXT( vulkan_instance, &debug_report_ci, vulkan_allocation_callbacks, &vulkan_debug_callback );
-            check( result );*/
-
             // Create new debug utils callback
             PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = ( PFN_vkCreateDebugUtilsMessengerEXT )vkGetInstanceProcAddr( vulkan_instance, "vkCreateDebugUtilsMessengerEXT" );
             VkDebugUtilsMessengerCreateInfoEXT debug_messenger_create_info = create_debug_utils_messenger_info();
@@ -531,7 +512,7 @@ void GpuDevice::init( const DeviceCreation& creation ) {
     vkCreateQueryPool( vulkan_device, &vqpci, vulkan_allocation_callbacks, &vulkan_timestamp_query_pool );
 
     //// Init pools
-    buffers.init( allocator, 4096, sizeof( Buffer ) );
+    buffers.init( allocator, 1024, sizeof( Buffer ) );
     textures.init( allocator, 512, sizeof( Texture ) );
     render_passes.init( allocator, 256, sizeof( RenderPass ) );
     descriptor_set_layouts.init( allocator, 128, sizeof( DesciptorSetLayout ) );
@@ -756,9 +737,6 @@ void GpuDevice::shutdown() {
     render_passes.shutdown();
 #ifdef VULKAN_DEBUG_REPORT
     // Remove the debug report callback
-    //auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr( vulkan_instance, "vkDestroyDebugReportCallbackEXT" );
-    //vkDestroyDebugReportCallbackEXT( vulkan_instance, vulkan_debug_callback, vulkan_allocation_callbacks );
-
     auto vkDestroyDebugUtilsMessengerEXT = ( PFN_vkDestroyDebugUtilsMessengerEXT )vkGetInstanceProcAddr( vulkan_instance, "vkDestroyDebugUtilsMessengerEXT" );
     vkDestroyDebugUtilsMessengerEXT( vulkan_instance, vulkan_debug_utils_messenger, vulkan_allocation_callbacks );
 #endif // IMGUI_VULKAN_DEBUG_REPORT
@@ -895,6 +873,29 @@ static void vulkan_create_texture( GpuDevice& gpu, const TextureCreation& creati
     texture->vk_image_layout = VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
+static void add_image_barrier(VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state, u32 base_mip_level, u32 mip_count, bool is_depth) {
+    VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+    barrier.image = image;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask = is_depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = mip_count;
+
+    barrier.subresourceRange.baseMipLevel = base_mip_level;
+    barrier.oldLayout = util_to_vk_image_layout(old_state);
+    barrier.newLayout = util_to_vk_image_layout(new_state);
+    barrier.srcAccessMask = util_to_vk_access_flags(old_state);
+    barrier.dstAccessMask = util_to_vk_access_flags(new_state);
+
+    const VkPipelineStageFlags source_stage_mask = util_determine_pipeline_stage_flags(barrier.srcAccessMask, QueueType::Graphics);
+    const VkPipelineStageFlags destination_stage_mask = util_determine_pipeline_stage_flags(barrier.dstAccessMask, QueueType::Graphics);
+
+    vkCmdPipelineBarrier(command_buffer, source_stage_mask, destination_stage_mask, 0,
+        0, nullptr, 0, nullptr, 1, &barrier);
+}
+
 TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
 
     u32 resource_index = textures.obtain_resource();
@@ -951,13 +952,56 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
 
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { creation.width, creation.height, creation.depth };
+/*
+        // Copy from the staging buffer to the image
+        add_image_barrier(command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, 0, 1, false);
 
-        // Transition
+        vkCmdCopyBufferToImage(command_buffer->vk_command_buffer, staging_buffer, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        // Prepare first mip to create lower mipmaps
+        if (creation.mipmaps > 1) {
+            add_image_barrier(command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, 0, 1, false);
+        }
+
+        i32 w = creation.width;
+        i32 h = creation.height;
+
+        for (int mip_index = 1; mip_index < creation.mipmaps; ++mip_index) {
+            add_image_barrier(command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, mip_index, 1, false);
+
+            VkImageBlit blit_region{ };
+            blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit_region.srcSubresource.mipLevel = mip_index - 1;
+            blit_region.srcSubresource.baseArrayLayer = 0;
+            blit_region.srcSubresource.layerCount = 1;
+
+            blit_region.srcOffsets[0] = { 0, 0, 0 };
+            blit_region.srcOffsets[1] = { w, h, 1 };
+
+            w /= 2;
+            h /= 2;
+
+            blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit_region.dstSubresource.mipLevel = mip_index;
+            blit_region.dstSubresource.baseArrayLayer = 0;
+            blit_region.dstSubresource.layerCount = 1;
+
+            blit_region.dstOffsets[0] = { 0, 0, 0 };
+            blit_region.dstOffsets[1] = { w, h, 1 };
+
+            vkCmdBlitImage(command_buffer->vk_command_buffer, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region, VK_FILTER_LINEAR);
+
+            // Prepare current mip for next level
+            add_image_barrier(command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, mip_index, 1, false);
+        }*/
+
+ 	// Transition
         transition_image_layout( command_buffer->vk_command_buffer, texture->vk_image, texture->vk_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, false );
         // Copy
         vkCmdCopyBufferToImage( command_buffer->vk_command_buffer, staging_buffer, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
         // Transition
         transition_image_layout( command_buffer->vk_command_buffer, texture->vk_image, texture->vk_format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false );
+
+//        add_image_barrier(command_buffer->vk_command_buffer, texture->vk_image, (creation.mipmaps > 1) ? RESOURCE_STATE_COPY_SOURCE : RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_SHADER_RESOURCE, 0, creation.mipmaps, false);
 
         vkEndCommandBuffer( command_buffer->vk_command_buffer );
 
@@ -1480,12 +1524,12 @@ SamplerHandle GpuDevice::create_sampler( const SamplerCreation& creation ) {
     create_info.compareEnable = 0;
     create_info.unnormalizedCoordinates = 0;
     create_info.borderColor = VkBorderColor::VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+    create_info.minLod = 0;
+    create_info.maxLod = 16;
     // TODO:
     /*float                   mipLodBias;
     float                   maxAnisotropy;
     VkCompareOp             compareOp;
-    float                   minLod;
-    float                   maxLod;
     VkBorderColor           borderColor;
     VkBool32                unnormalizedCoordinates;*/
 
@@ -1548,7 +1592,7 @@ DescriptorSetLayoutHandle GpuDevice::create_descriptor_set_layout( const Descrip
 
 //
 //
-static void vulkan_fill_write_descriptor_sets( GpuDevice& gpu, const DesciptorSetLayout* descriptor_set_layout, VkDescriptorSet vk_descriptor_set,
+void GpuDevice::fill_write_descriptor_sets( GpuDevice& gpu, const DesciptorSetLayout* descriptor_set_layout, VkDescriptorSet vk_descriptor_set,
                                                VkWriteDescriptorSet* descriptor_write, VkDescriptorBufferInfo* buffer_info, VkDescriptorImageInfo* image_info,
                                                VkSampler vk_default_sampler, u32& num_resources, const ResourceHandle* resources, const SamplerHandle* samplers, const u16* bindings ) {
 
@@ -1707,7 +1751,7 @@ DescriptorSetHandle GpuDevice::create_descriptor_set( const DescriptorSetCreatio
     Sampler* vk_default_sampler = access_sampler( default_sampler );
 
     u32 num_resources = creation.num_resources;
-    vulkan_fill_write_descriptor_sets( *this, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
+    fill_write_descriptor_sets( *this, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
                                        num_resources, creation.resources, creation.samplers, creation.bindings );
 
     // Cache resources
@@ -1816,7 +1860,7 @@ static void vulkan_create_swapchain_pass( GpuDevice& gpu, const RenderPassCreati
 
     // Transition
     for ( size_t i = 0; i < gpu.vulkan_swapchain_image_count; i++ ) {
-        transition_image_layout( command_buffer->vk_command_buffer, gpu.vulkan_swapchain_images[ i ], gpu.vulkan_surface_format.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, false );
+        add_image_barrier(command_buffer->vk_command_buffer, gpu.vulkan_swapchain_images[i], RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_PRESENT, 0, 1, false);
     }
 
     vkEndCommandBuffer( command_buffer->vk_command_buffer );
@@ -2408,6 +2452,7 @@ void GpuDevice::resize_swapchain() {
     TextureHandle texture_to_delete = { textures.obtain_resource() };
     Texture* vk_texture_to_delete = access_texture( texture_to_delete );
     vk_texture_to_delete->handle = texture_to_delete;
+    vk_texture_to_delete->sampler = nullptr;
     Texture* vk_depth_texture = access_texture( depth_texture );
     vulkan_resize_texture( *this, vk_depth_texture, vk_texture_to_delete, swapchain_width, swapchain_height, 1 );
 
@@ -2466,7 +2511,7 @@ void GpuDevice::update_descriptor_set_instant( const DescriptorSetUpdate& update
     vkAllocateDescriptorSets( vulkan_device, &allocInfo, &descriptor_set->vk_descriptor_set );
 
     u32 num_resources = descriptor_set_layout->num_bindings;
-    vulkan_fill_write_descriptor_sets( *this, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
+    fill_write_descriptor_sets( *this, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
                                        num_resources, descriptor_set->resources, descriptor_set->samplers, descriptor_set->bindings );
 
     vkUpdateDescriptorSets( vulkan_device, num_resources, descriptor_write, 0, nullptr );
@@ -3104,6 +3149,20 @@ DesciptorSetLayout* GpuDevice::access_descriptor_set_layout( DescriptorSetLayout
 
 const DesciptorSetLayout* GpuDevice::access_descriptor_set_layout( DescriptorSetLayoutHandle descriptor_set_layout ) const {
     return (const DesciptorSetLayout*)descriptor_set_layouts.access_resource( descriptor_set_layout.index );
+}
+
+DescriptorSetLayoutHandle GpuDevice::get_descriptor_set_layout(PipelineHandle pipeline_handle, int layout_index) {
+    Pipeline* pipeline = access_pipeline(pipeline_handle);
+    RASSERT(pipeline != nullptr);
+
+    return  pipeline->descriptor_set_layout_handle[layout_index];
+}
+
+DescriptorSetLayoutHandle GpuDevice::get_descriptor_set_layout(PipelineHandle pipeline_handle, int layout_index) const {
+    const Pipeline* pipeline = access_pipeline(pipeline_handle);
+    RASSERT(pipeline != nullptr);
+
+    return  pipeline->descriptor_set_layout_handle[layout_index];
 }
 
 DesciptorSet* GpuDevice::access_descriptor_set( DescriptorSetHandle descriptor_set ) {

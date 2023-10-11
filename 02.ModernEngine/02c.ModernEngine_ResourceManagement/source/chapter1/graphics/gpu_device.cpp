@@ -999,6 +999,14 @@ static void vulkan_create_texture( GpuDevice& gpu, const TextureCreation& creati
     gpu.set_resource_name( VK_OBJECT_TYPE_IMAGE_VIEW, ( u64 )texture->vk_image_view, creation.name );
 
     texture->vk_image_layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    
+    // Add deferred bindless update.
+    if (gpu.bindless_supported) {
+        ResourceUpdate resource_update{
+          ResourceDeletionType::Texture, texture->handle.index, gpu.current_frame
+        };
+        gpu.texture_to_update_bindless.push(resource_update);
+    }
 }
 
 TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {

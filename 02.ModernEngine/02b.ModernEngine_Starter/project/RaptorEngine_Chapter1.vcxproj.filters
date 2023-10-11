@@ -161,6 +161,12 @@
     <ClInclude Include="..\source\chapter1\graphics\raptor_imgui.hpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\raptor\application\game_camera.hpp">
+      <Filter>RaptorEngine\Application</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\raptor\foundation\camera.hpp">
+      <Filter>RaptorEngine\Foundation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\raptor\foundation\assert.cpp">
@@ -276,6 +282,12 @@
     </ClCompile>
     <ClCompile Include="..\source\chapter1\graphics\raptor_imgui.cpp">
       <Filter>RaptorEngine\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\raptor\application\game_camera.cpp">
+      <Filter>RaptorEngine\Application</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\raptor\foundation\camera.cpp">
+      <Filter>RaptorEngine\Foundation</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

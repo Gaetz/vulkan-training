@@ -101,6 +101,11 @@ struct GpuDevice : public Service {
 
     static GpuDevice*               instance();
 
+    // Helper methods
+    static void                     fill_write_descriptor_sets(GpuDevice& gpu, const DesciptorSetLayout* descriptor_set_layout, VkDescriptorSet vk_descriptor_set,
+        VkWriteDescriptorSet* descriptor_write, VkDescriptorBufferInfo* buffer_info, VkDescriptorImageInfo* image_info,
+        VkSampler vk_default_sampler, u32& num_resources, const ResourceHandle* resources, const SamplerHandle* samplers, const u16* bindings);
+
     // Init/Terminate methods
     void                            init( const DeviceCreation& creation );
     void                            shutdown();
@@ -332,6 +337,9 @@ struct GpuDevice : public Service {
 
     DesciptorSetLayout*       access_descriptor_set_layout( DescriptorSetLayoutHandle layout );
     const DesciptorSetLayout* access_descriptor_set_layout( DescriptorSetLayoutHandle layout ) const;
+
+    DescriptorSetLayoutHandle get_descriptor_set_layout(PipelineHandle pipeline_handle, int layout_index);
+    DescriptorSetLayoutHandle get_descriptor_set_layout(PipelineHandle pipeline_handle, int layout_index) const;
 
     DesciptorSet*             access_descriptor_set( DescriptorSetHandle set );
     const DesciptorSet*       access_descriptor_set( DescriptorSetHandle set ) const;
