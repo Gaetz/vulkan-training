@@ -89,14 +89,14 @@ struct Program : public raptor::Resource {
 //
 struct MaterialCreation {
 
-    MaterialCreation& reset();
-    MaterialCreation& set_program(Program* program);
-    MaterialCreation& set_name(cstring name);
-    MaterialCreation& set_render_index(u32 render_index);
+    MaterialCreation&               reset();
+    MaterialCreation&               set_program( Program* program );
+    MaterialCreation&               set_name( cstring name );
+    MaterialCreation&               set_render_index( u32 render_index );
 
-    Program* program = nullptr;
-    cstring                         name = nullptr;
-    u32                             render_index = ~0u;
+    Program*                        program          = nullptr;
+    cstring                         name             = nullptr;
+    u32                             render_index     = ~0u;
 
 }; // struct MaterialCreation
 
@@ -104,7 +104,7 @@ struct MaterialCreation {
 //
 struct Material : public raptor::Resource {
 
-    Program* program;
+    Program*                        program;
 
     u32                             render_index;
 
@@ -170,21 +170,20 @@ struct Renderer : public Service {
 
     SamplerResource*            create_sampler( const SamplerCreation& creation );
 
-    Program*                    create_program(const ProgramCreation& creation);
+    Program*                    create_program( const ProgramCreation& creation );
 
-    Material*                   create_material(const MaterialCreation& creation);
-    Material*                   create_material(Program* program, cstring name);
+    Material*                   create_material( const MaterialCreation& creation );
+    Material*                   create_material( Program* program, cstring name );
 
     // Draw
-    PipelineHandle              get_pipeline(Material* material);
-    DescriptorSetHandle         create_descriptor_set(CommandBuffer* gpu_commands, Material* material, DescriptorSetCreation& ds_creation);
-
+    PipelineHandle              get_pipeline( Material* material );
+    DescriptorSetHandle         create_descriptor_set( CommandBuffer* gpu_commands, Material* material, DescriptorSetCreation& ds_creation );
 
     void                        destroy_buffer( BufferResource* buffer );
     void                        destroy_texture( TextureResource* texture );
     void                        destroy_sampler( SamplerResource* sampler );
-    void                        destroy_program(Program* program);
-    void                        destroy_material(Material* material);
+    void                        destroy_program( Program* program );
+    void                        destroy_material( Material* material );
 
     // Update resources
     void*                       map_buffer( BufferResource* buffer, u32 offset = 0, u32 size = 0 );

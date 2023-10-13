@@ -101,6 +101,11 @@ struct GpuDevice : public Service {
 
     static GpuDevice*               instance();
 
+    // Helper methods
+    static void                     fill_write_descriptor_sets( GpuDevice& gpu, const DesciptorSetLayout* descriptor_set_layout, VkDescriptorSet vk_descriptor_set,
+                                                                VkWriteDescriptorSet* descriptor_write, VkDescriptorBufferInfo* buffer_info, VkDescriptorImageInfo* image_info,
+                                                                VkSampler vk_default_sampler, u32& num_resources, const ResourceHandle* resources, const SamplerHandle* samplers, const u16* bindings );
+
     // Init/Terminate methods
     void                            init( const DeviceCreation& creation );
     void                            shutdown();
@@ -275,13 +280,6 @@ struct GpuDevice : public Service {
     uint32_t                        vulkan_queue_family;
     VkDescriptorPool                vulkan_descriptor_pool;
 
-    // [TAG: BINDLESS]
-    VkDescriptorPool                vulkan_bindless_descriptor_pool;
-    // Global bindless descriptor layout.
-    VkDescriptorSetLayout           vulkan_bindless_descriptor_layout;
-    // Global bindless descriptor set.
-    VkDescriptorSet                 vulkan_bindless_descriptor_set;
-
     // Swapchain
     VkImage                         vulkan_swapchain_images[ k_max_swapchain_images ];
     VkImageView                     vulkan_swapchain_image_views[ k_max_swapchain_images ];
@@ -314,8 +312,6 @@ struct GpuDevice : public Service {
     // These are dynamic - so that workload can be handled correctly.
     Array<ResourceUpdate>           resource_deletion_queue;
     Array<DescriptorSetUpdate>      descriptor_set_updates;
-    // [TAG: BINDLESS]
-    Array<ResourceUpdate>           texture_to_update_bindless;
 
     f32                             gpu_timestamp_frequency;
     bool                            gpu_timestamp_reset             = true;
@@ -341,6 +337,9 @@ struct GpuDevice : public Service {
 
     DesciptorSetLayout*       access_descriptor_set_layout( DescriptorSetLayoutHandle layout );
     const DesciptorSetLayout* access_descriptor_set_layout( DescriptorSetLayoutHandle layout ) const;
+
+    DescriptorSetLayoutHandle get_descriptor_set_layout( PipelineHandle pipeline_handle, int layout_index );
+    DescriptorSetLayoutHandle get_descriptor_set_layout( PipelineHandle pipeline_handle, int layout_index ) const;
 
     DesciptorSet*             access_descriptor_set( DescriptorSetHandle set );
     const DesciptorSet*       access_descriptor_set( DescriptorSetHandle set ) const;

@@ -60,7 +60,7 @@ static RenderPassHandle             k_invalid_pass      { k_invalid_index };
 
 
 
-// Consts /////////////////////////////////////////////////////////////////
+// Consts //////////////////////////////////////////////////////////////////
 
 static const u8                     k_max_image_outputs = 8;                // Maximum number of images/render_targets/fbo attachments usable.
 static const u8                     k_max_descriptor_set_layouts = 8;       // Maximum number of layouts in the pipeline.
@@ -284,7 +284,7 @@ struct ShaderStateCreation {
 }; // struct ShaderStateCreation
 
 //
-// 
+//
 struct DescriptorSetLayoutCreation {
 
     //
@@ -498,7 +498,7 @@ struct ResourceBinding {
 }; // struct ResourceBinding
 
 
-// API-agnostic descriptions //////////////////////////////////////////////
+// API-agnostic descriptions ////////////////////////////////////////////////////
 
 //
 //
@@ -585,7 +585,7 @@ struct PipelineDescription {
 }; // struct PipelineDescription
 
 
-// API-agnostic resource modifications ////////////////////////////////////
+// API-agnostic resource modifications //////////////////////////////////////////
 
 struct MapBufferParameters {
     BufferHandle                    buffer;
@@ -594,7 +594,7 @@ struct MapBufferParameters {
 
 }; // struct MapBufferParameters
 
-// Synchronization ////////////////////////////////////////////////////////
+// Synchronization //////////////////////////////////////////////////////////////
 
 //
 //
@@ -820,55 +820,50 @@ struct RenderPass {
     u8                              num_render_targets = 0;
 
     const char*                     name        = nullptr;
-}; // struct RenderPassVulkan
+}; // struct RenderPass
+
 
 
 // Enum translations. Use tables or switches depending on the case. ///////
-cstring to_compiler_extension(VkShaderStageFlagBits value);
-cstring to_stage_defines(VkShaderStageFlagBits value);
+cstring                     to_compiler_extension( VkShaderStageFlagBits value );
+cstring                     to_stage_defines( VkShaderStageFlagBits value );
+
+VkImageType                 to_vk_image_type( TextureType::Enum type );
+VkImageViewType             to_vk_image_view_type( TextureType::Enum type );
+
+VkFormat                    to_vk_vertex_format( VertexComponentFormat::Enum value );
+
+VkPipelineStageFlags        to_vk_pipeline_stage( PipelineStage::Enum value );
 
 //
 //
-VkImageType to_vk_image_type(TextureType::Enum type);
-VkImageViewType to_vk_image_view_type(TextureType::Enum type);
+VkAccessFlags               util_to_vk_access_flags( ResourceState state );
 
-//
-//
-VkFormat to_vk_vertex_format(VertexComponentFormat::Enum value);
-
-//
-//
-VkPipelineStageFlags to_vk_pipeline_stage(PipelineStage::Enum value);
-
-//
-//
-VkAccessFlags util_to_vk_access_flags(ResourceState state);
-VkImageLayout util_to_vk_image_layout(ResourceState usage);
+VkImageLayout               util_to_vk_image_layout( ResourceState usage );
 
 // Determines pipeline stages involved for given accesses
-VkPipelineStageFlags util_determine_pipeline_stage_flags(VkAccessFlags accessFlags, QueueType::Enum queueType);
+VkPipelineStageFlags        util_determine_pipeline_stage_flags( VkAccessFlags access_flags, QueueType::Enum queue_type );
 
-void util_add_image_barrier(GpuDevice* gpu, VkCommandBuffer command_buffer, Texture* texture, ResourceState old_state, ResourceState new_state,
-    u32 base_mip_level, u32 mip_count, bool is_depth);
+void util_add_image_barrier( GpuDevice* gpu, VkCommandBuffer command_buffer, Texture* texture, ResourceState old_state, ResourceState new_state,
+                             u32 base_mip_level, u32 mip_count, bool is_depth );
 
-void util_add_image_barrier(GpuDevice* gpu, VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state,
-    u32 base_mip_level, u32 mip_count, bool is_depth);
+void util_add_image_barrier( GpuDevice* gpu, VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state,
+                             u32 base_mip_level, u32 mip_count, bool is_depth );
 
-void util_add_image_barrier_ext(GpuDevice* gpu, VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state,
-    u32 base_mip_level, u32 mip_count, u32 base_array_layer, u32 array_layer_count, bool is_depth, u32 source_family, u32 destination_family,
-    QueueType::Enum source_queue_type, QueueType::Enum destination_queue_type);
+void util_add_image_barrier_ext( GpuDevice* gpu, VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state,
+                                 u32 base_mip_level, u32 mip_count, u32 base_array_layer, u32 array_layer_count, bool is_depth, u32 source_family, u32 destination_family,
+                                 QueueType::Enum source_queue_type, QueueType::Enum destination_queue_type );
 
-void util_add_image_barrier_ext(GpuDevice* gpu, VkCommandBuffer command_buffer, Texture* texture, ResourceState old_state, ResourceState new_state,
-    u32 base_mip_level, u32 mip_count, u32 base_array_layer, u32 array_layer_count, bool is_depth,
-    u32 source_family = VK_QUEUE_FAMILY_IGNORED, u32 destination_family = VK_QUEUE_FAMILY_IGNORED,
-    QueueType::Enum source_queue_type = QueueType::Graphics, QueueType::Enum destination_queue_type = QueueType::Graphics);
+void util_add_image_barrier_ext( GpuDevice* gpu, VkCommandBuffer command_buffer, Texture* texture, ResourceState old_state, ResourceState new_state,
+                                 u32 base_mip_level, u32 mip_count, u32 base_array_layer, u32 array_layer_count, bool is_depth,
+                                 u32 source_family = VK_QUEUE_FAMILY_IGNORED, u32 destination_family = VK_QUEUE_FAMILY_IGNORED,
+                                 QueueType::Enum source_queue_type = QueueType::Graphics, QueueType::Enum destination_queue_type = QueueType::Graphics );
 
-void util_add_buffer_barrier(GpuDevice* gpu, VkCommandBuffer command_buffer, VkBuffer buffer, ResourceState old_state, ResourceState new_state,
-    u32 buffer_size);
+void util_add_buffer_barrier( GpuDevice* gpu, VkCommandBuffer command_buffer, VkBuffer buffer, ResourceState old_state, ResourceState new_state,
+                              u32 buffer_size );
 
-void util_add_buffer_barrier_ext(GpuDevice* gpu, VkCommandBuffer command_buffer, VkBuffer buffer, ResourceState old_state, ResourceState new_state,
-    u32 buffer_size, u32 source_family, u32 destination_family,
-    QueueType::Enum source_queue_type, QueueType::Enum destination_queue_type);
+void util_add_buffer_barrier_ext( GpuDevice* gpu, VkCommandBuffer command_buffer, VkBuffer buffer, ResourceState old_state, ResourceState new_state,
+                                  u32 buffer_size, u32 source_family, u32 destination_family,
+                                  QueueType::Enum source_queue_type, QueueType::Enum destination_queue_type );
 
 } // namespace raptor
-

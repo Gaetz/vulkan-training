@@ -12,23 +12,6 @@ void CommandBuffer::reset() {
     current_render_pass = nullptr;
     current_pipeline = nullptr;
     current_command = 0;
-
-    /*
-
-    vkResetDescriptorPool(gpu_device->vulkan_device, vk_descriptor_pool, 0);
-
-    
-    u32 resource_count = descriptor_sets.free_indices_head;
-    for (u32 i = 0; i < resource_count; ++i) {
-        DesciptorSet* v_descriptor_set = (DesciptorSet*)descriptor_sets.access_resource(i);
-
-        if (v_descriptor_set) {
-            // Contains the allocation for all the resources, binding and samplers arrays.
-            rfree(v_descriptor_set->resources, gpu_device->allocator);
-        }
-        descriptor_sets.release_resource(i);
-    }
-    */
 }
 
 
@@ -56,13 +39,13 @@ void CommandBuffer::init( QueueType::Enum type_, u32 buffer_size_, u32 submit_si
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = k_global_pool_elements * ArraySize(pool_sizes);
-    pool_info.poolSizeCount = (u32)ArraySize(pool_sizes);
+    pool_info.maxSets = k_global_pool_elements * ArraySize( pool_sizes );
+    pool_info.poolSizeCount = ( u32 )ArraySize( pool_sizes );
     pool_info.pPoolSizes = pool_sizes;
-    VkResult result = vkCreateDescriptorPool(gpu_device->vulkan_device, &pool_info, gpu_device->vulkan_allocation_callbacks, &vk_descriptor_pool);
-    RASSERT(result == VK_SUCCESS);
+    VkResult result = vkCreateDescriptorPool( gpu_device->vulkan_device, &pool_info, gpu_device->vulkan_allocation_callbacks, &vk_descriptor_pool );
+    RASSERT( result == VK_SUCCESS );
 
-    descriptor_sets.init(gpu_device->allocator, 256, sizeof(DesciptorSet));
+    descriptor_sets.init( gpu_device->allocator, 256, sizeof( DesciptorSet ) );
 
     reset();
 }
@@ -72,19 +55,20 @@ void CommandBuffer::terminate() {
     is_recording = false;
 
     reset();
+
     descriptor_sets.shutdown();
 
-    vkDestroyDescriptorPool(gpu_device->vulkan_device, vk_descriptor_pool, gpu_device->vulkan_allocation_callbacks);
+    vkDestroyDescriptorPool( gpu_device->vulkan_device, vk_descriptor_pool, gpu_device->vulkan_allocation_callbacks );
 }
 
-DescriptorSetHandle CommandBuffer::create_descriptor_set(const DescriptorSetCreation& creation) {
+DescriptorSetHandle CommandBuffer::create_descriptor_set( const DescriptorSetCreation& creation ) {
     DescriptorSetHandle handle = { descriptor_sets.obtain_resource() };
-    if (handle.index == k_invalid_index) {
+    if ( handle.index == k_invalid_index ) {
         return handle;
     }
 
-    DesciptorSet* descriptor_set = (DesciptorSet*)descriptor_sets.access_resource(handle.index);
-    const DesciptorSetLayout* descriptor_set_layout = gpu_device->access_descriptor_set_layout(creation.layout);
+    DesciptorSet* descriptor_set = ( DesciptorSet* )descriptor_sets.access_resource( handle.index );
+    const DesciptorSetLayout* descriptor_set_layout = gpu_device->access_descriptor_set_layout( creation.layout );
 
     // Allocate descriptor set
     VkDescriptorSetAllocateInfo alloc_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
@@ -92,36 +76,36 @@ DescriptorSetHandle CommandBuffer::create_descriptor_set(const DescriptorSetCrea
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts = &descriptor_set_layout->vk_descriptor_set_layout;
 
-    VkResult result = vkAllocateDescriptorSets(gpu_device->vulkan_device, &alloc_info, &descriptor_set->vk_descriptor_set);
-    RASSERT(result == VK_SUCCESS);
+    VkResult result = vkAllocateDescriptorSets( gpu_device->vulkan_device, &alloc_info, &descriptor_set->vk_descriptor_set );
+    RASSERT( result == VK_SUCCESS );
 
     // Cache data
-    u8* memory = rallocam((sizeof(ResourceHandle) + sizeof(SamplerHandle) + sizeof(u16)) * creation.num_resources, gpu_device->allocator);
-    descriptor_set->resources = (ResourceHandle*)memory;
-    descriptor_set->samplers = (SamplerHandle*)(memory + sizeof(ResourceHandle) * creation.num_resources);
-    descriptor_set->bindings = (u16*)(memory + (sizeof(ResourceHandle) + sizeof(SamplerHandle)) * creation.num_resources);
+    u8* memory = rallocam( ( sizeof( ResourceHandle ) + sizeof( SamplerHandle ) + sizeof( u16 ) ) * creation.num_resources, gpu_device->allocator );
+    descriptor_set->resources = ( ResourceHandle* )memory;
+    descriptor_set->samplers = ( SamplerHandle* )( memory + sizeof( ResourceHandle ) * creation.num_resources );
+    descriptor_set->bindings = ( u16* )( memory + ( sizeof( ResourceHandle ) + sizeof( SamplerHandle ) ) * creation.num_resources );
     descriptor_set->num_resources = creation.num_resources;
     descriptor_set->layout = descriptor_set_layout;
 
     // Update descriptor set
-    VkWriteDescriptorSet descriptor_write[8];
-    VkDescriptorBufferInfo buffer_info[8];
-    VkDescriptorImageInfo image_info[8];
+    VkWriteDescriptorSet descriptor_write[ 8 ];
+    VkDescriptorBufferInfo buffer_info[ 8 ];
+    VkDescriptorImageInfo image_info[ 8 ];
 
-    Sampler* vk_default_sampler = gpu_device->access_sampler(gpu_device->default_sampler);
+    Sampler* vk_default_sampler = gpu_device->access_sampler( gpu_device->default_sampler );
 
     u32 num_resources = creation.num_resources;
-    GpuDevice::fill_write_descriptor_sets(*gpu_device, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
-        num_resources, creation.resources, creation.samplers, creation.bindings);
+    GpuDevice::fill_write_descriptor_sets( *gpu_device, descriptor_set_layout, descriptor_set->vk_descriptor_set, descriptor_write, buffer_info, image_info, vk_default_sampler->vk_sampler,
+                                           num_resources, creation.resources, creation.samplers, creation.bindings );
 
     // Cache resources
-    for (u32 r = 0; r < creation.num_resources; r++) {
-        descriptor_set->resources[r] = creation.resources[r];
-        descriptor_set->samplers[r] = creation.samplers[r];
-        descriptor_set->bindings[r] = creation.bindings[r];
+    for ( u32 r = 0; r < creation.num_resources; r++ ) {
+        descriptor_set->resources[ r ] = creation.resources[ r ];
+        descriptor_set->samplers[ r ] = creation.samplers[ r ];
+        descriptor_set->bindings[ r ] = creation.bindings[ r ];
     }
 
-    vkUpdateDescriptorSets(gpu_device->vulkan_device, num_resources, descriptor_write, 0, nullptr);
+    vkUpdateDescriptorSets( gpu_device->vulkan_device, num_resources, descriptor_write, 0, nullptr );
 
     return handle;
 }
@@ -229,35 +213,35 @@ void CommandBuffer::bind_descriptor_set( DescriptorSetHandle* handles, u32 num_l
                              num_lists, vk_descriptor_sets, num_offsets, offsets_cache );
 }
 
-void CommandBuffer::bind_local_descriptor_set(DescriptorSetHandle* handles, u32 num_lists, u32* offsets, u32 num_offsets) {
+void CommandBuffer::bind_local_descriptor_set( DescriptorSetHandle* handles, u32 num_lists, u32* offsets, u32 num_offsets ) {
 
     // TODO:
-    u32 offsets_cache[8];
+    u32 offsets_cache[ 8 ];
     num_offsets = 0;
 
-    for (u32 l = 0; l < num_lists; ++l) {
-        DesciptorSet* descriptor_set = (DesciptorSet*)descriptor_sets.access_resource(handles[l].index);
+    for ( u32 l = 0; l < num_lists; ++l ) {
+        DesciptorSet* descriptor_set = ( DesciptorSet* )descriptor_sets.access_resource( handles[ l ].index );
         vk_descriptor_sets[l] = descriptor_set->vk_descriptor_set;
 
         // Search for dynamic buffers
         const DesciptorSetLayout* descriptor_set_layout = descriptor_set->layout;
-        for (u32 i = 0; i < descriptor_set_layout->num_bindings; ++i) {
-            const DescriptorBinding& rb = descriptor_set_layout->bindings[i];
+        for ( u32 i = 0; i < descriptor_set_layout->num_bindings; ++i ) {
+            const DescriptorBinding& rb = descriptor_set_layout->bindings[ i ];
 
-            if (rb.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+            if ( rb.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ) {
                 // Search for the actual buffer offset
-                const u32 resource_index = descriptor_set->bindings[i];
-                ResourceHandle buffer_handle = descriptor_set->resources[resource_index];
-                Buffer* buffer = gpu_device->access_buffer({ buffer_handle });
+                const u32 resource_index = descriptor_set->bindings[ i ];
+                ResourceHandle buffer_handle = descriptor_set->resources[ resource_index ];
+                Buffer* buffer = gpu_device->access_buffer( { buffer_handle } );
 
-                offsets_cache[num_offsets++] = buffer->global_offset;
+                offsets_cache[ num_offsets++ ] = buffer->global_offset;
             }
         }
     }
 
     const u32 k_first_set = 0;
-    vkCmdBindDescriptorSets(vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, k_first_set,
-        num_lists, vk_descriptor_sets, num_offsets, offsets_cache);
+    vkCmdBindDescriptorSets( vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, k_first_set,
+                             num_lists, vk_descriptor_sets, num_offsets, offsets_cache );
 }
 
 void CommandBuffer::set_viewport( const Viewport* viewport ) {
@@ -619,6 +603,5 @@ void CommandBuffer::pop_marker() {
 
     gpu_device->pop_marker( vk_command_buffer );
 }
-
 
 } // namespace raptor

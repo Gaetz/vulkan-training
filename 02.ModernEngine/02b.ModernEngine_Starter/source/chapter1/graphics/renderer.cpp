@@ -53,24 +53,24 @@ MaterialCreation& MaterialCreation::reset() {
     return *this;
 }
 
-MaterialCreation& MaterialCreation::set_program(Program* program_) {
+MaterialCreation& MaterialCreation::set_program( Program* program_ ) {
     program = program_;
     return *this;
 }
 
-MaterialCreation& MaterialCreation::set_render_index(u32 render_index_) {
+MaterialCreation& MaterialCreation::set_render_index( u32 render_index_ ) {
     render_index = render_index_;
     return *this;
 }
 
-MaterialCreation& MaterialCreation::set_name(cstring name_) {
+MaterialCreation& MaterialCreation::set_name( cstring name_ ) {
     name = name_;
     return *this;
 }
 
 //
 //
-static TextureHandle create_texture_from_file( GpuDevice& gpu, cstring filename, cstring name, bool create_mipmaps) {
+static TextureHandle create_texture_from_file( GpuDevice& gpu, cstring filename, cstring name, bool create_mipmaps ) {
 
     if ( filename ) {
         int comp, width, height;
@@ -81,7 +81,7 @@ static TextureHandle create_texture_from_file( GpuDevice& gpu, cstring filename,
         }
 
         u32 mip_levels = 1;
-        if (create_mipmaps) {
+        if ( create_mipmaps ) {
             u32 w = width;
             u32 h = height;
 
@@ -94,7 +94,7 @@ static TextureHandle create_texture_from_file( GpuDevice& gpu, cstring filename,
         }
 
         TextureCreation creation;
-        creation.set_data( image_data ).set_format_type( VK_FORMAT_R8G8B8A8_UNORM, TextureType::Texture2D ).set_flags(mip_levels, 0 ).set_size( ( u16 )width, ( u16 )height, 1 ).set_name( name );
+        creation.set_data( image_data ).set_format_type( VK_FORMAT_R8G8B8A8_UNORM, TextureType::Texture2D ).set_flags( mip_levels, 0 ).set_size( ( u16 )width, ( u16 )height, 1 ).set_name( name );
 
         raptor::TextureHandle new_texture = gpu.create_texture( creation );
 
@@ -139,8 +139,8 @@ void Renderer::init( const RendererCreation& creation ) {
     textures.init( creation.allocator, 512 );
     buffers.init( creation.allocator, 1024 );
     samplers.init( creation.allocator, 128 );
-    programs.init(creation.allocator, 128);
-    materials.init(creation.allocator, 128);
+    programs.init( creation.allocator, 128 );
+    materials.init( creation.allocator, 128 );
 
     resource_cache.init( creation.allocator );
 
@@ -148,8 +148,8 @@ void Renderer::init( const RendererCreation& creation ) {
     TextureResource::k_type_hash = hash_calculate( TextureResource::k_type );
     BufferResource::k_type_hash = hash_calculate( BufferResource::k_type );
     SamplerResource::k_type_hash = hash_calculate( SamplerResource::k_type );
-    Program::k_type_hash = hash_calculate(Program::k_type);
-    Material::k_type_hash = hash_calculate(Material::k_type);
+    Program::k_type_hash = hash_calculate( Program::k_type );
+    Material::k_type_hash = hash_calculate( Material::k_type );
 
     s_texture_loader.renderer = this;
     s_buffer_loader.renderer = this;
@@ -247,7 +247,7 @@ TextureResource* Renderer::create_texture( cstring name, cstring filename, bool 
     TextureResource* texture = textures.obtain();
 
     if ( texture ) {
-        TextureHandle handle = create_texture_from_file( *gpu, filename, name, create_mipmaps);
+        TextureHandle handle = create_texture_from_file( *gpu, filename, name, create_mipmaps );
         texture->handle = handle;
         gpu->query_texture( handle, texture->desc );
         texture->references = 1;
@@ -279,20 +279,20 @@ SamplerResource* Renderer::create_sampler( const SamplerCreation& creation ) {
     return nullptr;
 }
 
-Program* Renderer::create_program(const ProgramCreation& creation) {
+Program* Renderer::create_program( const ProgramCreation& creation ) {
     Program* program = programs.obtain();
-    if (program) {
+    if ( program ) {
         const u32 num_passes = 1;
         // First create arrays
-        program->passes.init(gpu->allocator, num_passes, num_passes);
+        program->passes.init( gpu->allocator, num_passes, num_passes );
 
         program->name = creation.pipeline_creation.name;
 
         StringBuffer pipeline_cache_path;
-        pipeline_cache_path.init(1024, gpu->allocator);
+        pipeline_cache_path.init( 1024, gpu->allocator );
 
-        for (uint32_t i = 0; i < num_passes; ++i) {
-            ProgramPass& pass = program->passes[i];
+        for ( uint32_t i = 0; i < num_passes; ++i ) {
+            ProgramPass& pass = program->passes[ i ];
 
             pass.pipeline = gpu->create_pipeline(creation.pipeline_creation);
 
@@ -301,8 +301,8 @@ Program* Renderer::create_program(const ProgramCreation& creation) {
 
         pipeline_cache_path.shutdown();
 
-        if (creation.pipeline_creation.name != nullptr) {
-            resource_cache.programs.insert(hash_calculate(creation.pipeline_creation.name), program);
+        if ( creation.pipeline_creation.name != nullptr ) {
+            resource_cache.programs.insert( hash_calculate( creation.pipeline_creation.name ), program );
         }
 
         program->references = 1;
@@ -312,15 +312,15 @@ Program* Renderer::create_program(const ProgramCreation& creation) {
     return nullptr;
 }
 
-Material* Renderer::create_material(const MaterialCreation& creation) {
+Material* Renderer::create_material( const MaterialCreation& creation ) {
     Material* material = materials.obtain();
-    if (material) {
+    if ( material ) {
         material->program = creation.program;
         material->name = creation.name;
         material->render_index = creation.render_index;
 
-        if (creation.name != nullptr) {
-            resource_cache.materials.insert(hash_calculate(creation.name), material);
+        if ( creation.name != nullptr ) {
+            resource_cache.materials.insert( hash_calculate( creation.name ), material );
         }
 
         material->references = 1;
@@ -330,25 +330,25 @@ Material* Renderer::create_material(const MaterialCreation& creation) {
     return nullptr;
 }
 
-Material* Renderer::create_material(Program* program, cstring name) {
+Material* Renderer::create_material( Program* program, cstring name ) {
     MaterialCreation creation{ program, name };
-    return create_material(creation);
+    return create_material( creation );
 }
 
-PipelineHandle Renderer::get_pipeline(Material* material) {
-    RASSERT(material != nullptr);
+PipelineHandle Renderer::get_pipeline( Material* material ) {
+    RASSERT( material != nullptr );
 
-    return material->program->passes[0].pipeline;
+    return material->program->passes[ 0 ].pipeline;
 }
 
-DescriptorSetHandle Renderer::create_descriptor_set(CommandBuffer* gpu_commands, Material* material, DescriptorSetCreation& ds_creation) {
-    RASSERT(material != nullptr);
+DescriptorSetHandle Renderer::create_descriptor_set( CommandBuffer* gpu_commands, Material* material, DescriptorSetCreation& ds_creation ) {
+    RASSERT( material != nullptr );
 
-    DescriptorSetLayoutHandle set_layout = material->program->passes[0].descriptor_set_layout;
+    DescriptorSetLayoutHandle set_layout = material->program->passes[ 0 ].descriptor_set_layout;
 
-    ds_creation.set_layout(set_layout);
+    ds_creation.set_layout( set_layout );
 
-    return gpu_commands->create_descriptor_set(ds_creation);
+    return gpu_commands->create_descriptor_set( ds_creation );
 }
 
 void Renderer::destroy_buffer( BufferResource* buffer ) {
@@ -396,36 +396,36 @@ void Renderer::destroy_sampler( SamplerResource* sampler ) {
     samplers.release( sampler );
 }
 
-void Renderer::destroy_program(Program* program) {
-    if (!program) {
+void Renderer::destroy_program( Program* program ) {
+    if ( !program ) {
         return;
     }
 
     program->remove_reference();
-    if (program->references) {
+    if ( program->references ) {
         return;
     }
 
-    resource_cache.programs.remove(hash_calculate(program->name));
+    resource_cache.programs.remove( hash_calculate( program->name ) );
 
-    gpu->destroy_pipeline(program->passes[0].pipeline);
+    gpu->destroy_pipeline( program->passes[ 0 ].pipeline );
     program->passes.shutdown();
 
-    programs.release(program);
+    programs.release( program );
 }
 
-void Renderer::destroy_material(Material* material) {
-    if (!material) {
+void Renderer::destroy_material( Material* material ) {
+    if ( !material ) {
         return;
     }
 
     material->remove_reference();
-    if (material->references) {
+    if ( material->references ) {
         return;
     }
 
-    resource_cache.materials.remove(hash_calculate(material->name));
-    materials.release(material);
+    resource_cache.materials.remove( hash_calculate( material->name ) );
+    materials.release( material );
 }
 
 void* Renderer::map_buffer( BufferResource* buffer, u32 offset, u32 size ) {
@@ -512,8 +512,8 @@ void ResourceCache::init( Allocator* allocator ) {
     textures.init( allocator, 16 );
     buffers.init( allocator, 16 );
     samplers.init( allocator, 16 );
-    programs.init(allocator, 16);
-    materials.init(allocator, 16);
+    programs.init( allocator, 16 );
+    materials.init( allocator, 16 );
 }
 
 void ResourceCache::shutdown( Renderer* renderer ) {
@@ -547,20 +547,20 @@ void ResourceCache::shutdown( Renderer* renderer ) {
 
     it = materials.iterator_begin();
 
-    while (it.is_valid()) {
-        raptor::Material* material = materials.get(it);
-        renderer->destroy_material(material);
+    while ( it.is_valid() ) {
+        raptor::Material* material = materials.get( it );
+        renderer->destroy_material( material );
 
-        materials.iterator_advance(it);
+        materials.iterator_advance( it );
     }
 
     it = programs.iterator_begin();
 
-    while (it.is_valid()) {
-        raptor::Program* program = programs.get(it);
-        renderer->destroy_program(program);
+    while ( it.is_valid() ) {
+        raptor::Program* program = programs.get( it );
+        renderer->destroy_program( program );
 
-        programs.iterator_advance(it);
+        programs.iterator_advance( it );
     }
 
     textures.shutdown();

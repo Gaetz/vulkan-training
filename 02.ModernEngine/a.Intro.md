@@ -14,9 +14,11 @@ Separate the team in 4 groups:
 - Group 1 will analyse and expose a report about memory allocation, data structures and . They will analyse memory.hpp, memory_utils.hpp, bit.hpp, array.hpp, color.hpp, data_structures.hpp, hash_map.hpp, numerics.hpp, string.hpp, and there cpp counterparts in the Foundation folder.
 - Group 2 will analyse resource_manager.hpp, serialization.hpp, gltf.hpp, file.hpp, blob.hpp and blob_serialization.hpp, service.hpp, service_manager.hpp, process.hpp, log.hpp, assert.hpp and their cpp counterparts in the Foundation folder.
 - Group 3 will analyse and expose the structure of the renderer in the Graphics folder.
-- Group 4 will  analyse and expose the structure of the application from the Application folder and the main.cpp from the Graphics folder.
+- Group 4 will  analyse and expose the structure of the application from the Application folder and the main.cpp (inclusing shader code) from the Graphics folder.
 
 Each analysis should at least contains a UML class diagram and a sequence diagram to explain initialization or any other feature.
+
+You can use the `a.InformationDocument.pdf` to get an overview of the engine. You are expected to go into code details.
 
 ## Report
 
