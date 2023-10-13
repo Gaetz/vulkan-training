@@ -12,6 +12,19 @@ void CommandBuffer::reset() {
     current_render_pass = nullptr;
     current_pipeline = nullptr;
     current_command = 0;
+
+    vkResetDescriptorPool( gpu_device->vulkan_device, vk_descriptor_pool, 0 );
+
+    u32 resource_count = descriptor_sets.free_indices_head;
+    for ( u32 i = 0; i < resource_count; ++i) {
+        DesciptorSet* v_descriptor_set = ( DesciptorSet* )descriptor_sets.access_resource( i );
+
+        if ( v_descriptor_set ) {
+            // Contains the allocation for all the resources, binding and samplers arrays.
+            rfree( v_descriptor_set->resources, gpu_device->allocator );
+        }
+        descriptor_sets.release_resource( i );
+    }
 }
 
 
@@ -211,6 +224,11 @@ void CommandBuffer::bind_descriptor_set( DescriptorSetHandle* handles, u32 num_l
     const u32 k_first_set = 0;
     vkCmdBindDescriptorSets( vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, k_first_set,
                              num_lists, vk_descriptor_sets, num_offsets, offsets_cache );
+
+    if ( gpu_device->bindless_supported ) {
+        vkCmdBindDescriptorSets( vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, 1,
+                                 1, &gpu_device->vulkan_bindless_descriptor_set, 0, nullptr );
+    }
 }
 
 void CommandBuffer::bind_local_descriptor_set( DescriptorSetHandle* handles, u32 num_lists, u32* offsets, u32 num_offsets ) {
@@ -242,6 +260,11 @@ void CommandBuffer::bind_local_descriptor_set( DescriptorSetHandle* handles, u32
     const u32 k_first_set = 0;
     vkCmdBindDescriptorSets( vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, k_first_set,
                              num_lists, vk_descriptor_sets, num_offsets, offsets_cache );
+
+    if ( gpu_device->bindless_supported ) {
+        vkCmdBindDescriptorSets( vk_command_buffer, current_pipeline->vk_bind_point, current_pipeline->vk_pipeline_layout, 1,
+                                 1, &gpu_device->vulkan_bindless_descriptor_set, 0, nullptr );
+    }
 }
 
 void CommandBuffer::set_viewport( const Viewport* viewport ) {

@@ -34,7 +34,7 @@ void CommandBuffer::init( QueueType::Enum type_, u32 buffer_size_, u32 submit_si
     buffer_size = buffer_size_;
     baked = baked_;
 
-     ////////  Create Descriptor Pools
+    ////////  Create Descriptor Pools
     static const u32 k_global_pool_elements = 128;
     VkDescriptorPoolSize pool_sizes[] =
     {

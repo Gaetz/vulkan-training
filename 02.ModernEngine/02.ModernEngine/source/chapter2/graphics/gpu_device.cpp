@@ -408,8 +408,6 @@ void GpuDevice::init( const DeviceCreation& creation ) {
     // For the feature to be correctly working, we need both the possibility to partially bind a descriptor,
     // as some entries in the bindless array will be empty, and SpirV runtime descriptors.
     bindless_supported = indexing_features.descriptorBindingPartiallyBound && indexing_features.runtimeDescriptorArray;
-    // TODO: remove when finished with bindless
-    //bindless_supported = false;
 
     //////// Create logical device
     u32 queue_family_count = 0;
@@ -425,16 +423,6 @@ void GpuDevice::init( const DeviceCreation& creation ) {
             //indices.graphicsFamily = i;
             break;
         }
-
-        //VkBool32 presentSupport = false;
-        //vkGetPhysicalDeviceSurfaceSupportKHR( vulkan_physical_device, i, _surface, &presentSupport );
-        //if ( queue_family.queueCount && presentSupport ) {
-        //    indices.presentFamily = i;
-        //}
-
-        //if ( indices.isComplete() ) {
-        //    break;
-        //}
     }
 
     rfree( queue_families, allocator );
@@ -1376,7 +1364,6 @@ PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation, con
         vk_layouts[ l ] = pipeline->descriptor_set[ l ]->vk_descriptor_set_layout;
     }
 
-    // TODO: improve.
     // Add bindless resource layout after other layouts.
     // [TAG: BINDLESS]
     u32 bindless_active = 0;

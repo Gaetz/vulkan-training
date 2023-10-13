@@ -343,7 +343,7 @@ struct DescriptorSetCreation {
 //
 //
 struct DescriptorSetUpdate {
-    DescriptorSetHandle              descriptor_set;
+    DescriptorSetHandle             descriptor_set;
 
     u32                             frame_issued = 0;
 }; // DescriptorSetUpdate
@@ -456,7 +456,7 @@ struct PipelineCreation {
 
 }; // struct PipelineCreation
 
-// API-agnostic structs /////////////////////////////////////////////////////////
+// API-agnostic structs ///////////////////////////////////////////////////
 
 //
 // Helper methods for texture formats
@@ -649,7 +649,7 @@ struct ResourceUpdate {
     u32                             current_frame;
 }; // struct ResourceUpdate
 
-// Resources /////////////////////////////////////////////////////////////
+// Resources //////////////////////////////////////////////////////////////
 
 static const u32            k_max_swapchain_images = 3;
 
