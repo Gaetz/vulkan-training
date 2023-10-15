@@ -220,6 +220,10 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClCompile Include="..\source\raptor\foundation\string.cpp" />
     <ClCompile Include="..\source\raptor\foundation\time.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\source\chapter1\shaders\main.frag" />
+    <None Include="..\source\chapter1\shaders\main.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

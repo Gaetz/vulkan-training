@@ -21,6 +21,9 @@
     <Filter Include="RaptorEngine\Application">
       <UniqueIdentifier>{f21935fc-d422-4387-893d-e61258d8eb7d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{5509e959-4529-414f-a18a-d23a705c77c6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\raptor\foundation\array.hpp">
@@ -277,5 +280,13 @@
     <ClCompile Include="..\source\chapter1\graphics\raptor_imgui.cpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\source\chapter1\shaders\main.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\source\chapter1\shaders\main.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
