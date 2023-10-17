@@ -752,6 +752,808 @@ Finally, to read the texture, the code in the shader has to be modified as follo
 texture(global_textures[nonuniformEXT(texture_index)], vTexcoord0)
 ```
 
+Let’s go in the following order:
+
+1. First of all, we need the integer index coming from a constant. In this case, ``texture_index`` will contain the same number as the texture position in the bindless array.
+
+2. Second, and this is the crucial change, we need to wrap the index with the ``nonuniformEXT`` qualifier (https://github.com/KhronosGroup/GLSL/blob/master/extensions/ext/GL_EXT_nonuniform_qualifier.txt); this will basically synchronize the programs between the different executions to properly read the texture index, in case the index is different across different threads of the same shader invocation. This might sound complicated at first but think about it as a multithreading issue that needs synchronization to make sure the proper texture index is read in each thread and, as a result, the correct texture is used.
+
+3. Lastly, using the synchronized index we read from the global_textures array, we finally have the texture sample we wanted! 
+
+### Conclusion
+
+We have now added bindless textures support to the Raptor Engine! We started by checking whether the GPU supports this feature. Then we detailed the changes we made to the creation of the descriptor pool and descriptor set. Finally, we have shown how the descriptor set is updated as new textures are uploaded to the GPU and the necessary shader modifications to make use of bindless textures. All the rendering from now on will use this feature; thus, this concept will become familiar.
+
+Next, we are going to improve our engine capabilities by adding automatic pipeline generation by  parsing shaders’ binary data.
+
+## Automating pipeline layout generation
+
+In this section, we are going to take advantage of the data provided by the SPIR-V binary format to extract the information needed to create a pipeline layout. SPIR-V is the intermediate representation (IR) that shader sources are compiled to before being passed to the GPU. Compared to standard GLSL shader sources, which are plain text, SPIR-V is a binary format. This means it’s a more compact format to use when distributing an application. More importantly, developers don’t have to worry about their shaders getting compiled into a different set of high-level instructions depending on the GPU and driver their code is running on.
+
+However, a SPIR-V binary does not contain the final instructions that will be executed by the GPU. Every GPU will take a SPIR-V blob and do a final compilation into GPU instructions. This step is still required because different GPUs and driver versions can produce different assemblies for the same SPIR-V binary. Having SPIR-V as an intermediate step is still a great improvement. Shader code validation and parsing are done offline, and developers can compile their shaders together with their application code. This allows us to spot any syntax mistakes before trying to run the shader code.
+
+Another benefit of having an intermediate representation is being able to compile shaders written in different languages to SPIR-V so that they can be used with Vulkan. It’s possible, for instance, to compile a shader written in HLSL into SPIR-V and reuse it in a Vulkan renderer. Before this option was available, developers either had to port the code manually or had to rely on tools that rewrote the shader from one language to another.
+
+We are now going to explain how to use the information in the binary data to automatically generate a pipeline layout. You already know, from the vulkan introduction, how to compile a shader to a spv file. It is possible to read the content of this file, using the command:
+
+```
+spirv-dis main.vert.spv
+```
+
+This command will print the disassembled SPIR-V on the Terminal. We are now going to examine the relevant sections of the output.
+
+### Understanding the SPIR-V output
+
+Starting from the top of the output, the following is the first set of information we are provided with:
+```
+OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %main "main" %_ %position
+%vPosition %vTexcoord0 %texCoord0 %vNormal %normal %vTangent %tangent
+OpSource GLSL 450
+OpName %main "main"
+```
+
+This preamble defines the version of GLSL that was used to write the shader. The ``OpEntryPoint`` directive references the main function and lists the inputs and outputs for the shader. The convention is for variables to be prefixed by %, and it’s possible to forward declare a variable that is defined later.
+
+The next section defines the output variables that are available in this shader:
+```
+OpName %gl_PerVertex "gl_PerVertex"
+OpMemberName %gl_PerVertex 0 "gl_Position"
+OpMemberName %gl_PerVertex 1 "gl_PointSize"
+OpMemberName %gl_PerVertex 2 "gl_ClipDistance"
+OpMemberName %gl_PerVertex 3 "gl_CullDistance"
+OpName %_ ""
+```
+
+These are variables that are automatically injected by the compiler and are defined by the GLSL specification. We can see we have a gl_PerVertex structure, which in turn has four members: `gl_Position, gl_PointSize, gl_ClipDistance, and gl_CullDistance`. There is also an unnamed variable defined as %_. We’re going to discover soon what it refers to.
+
+We now move on to the structures we have defined:
+```
+OpName %LocalConstants "LocalConstants"
+OpMemberName %LocalConstants 0 "model"
+OpMemberName %LocalConstants 1 "view_projection"
+OpMemberName %LocalConstants 2 "model_inverse"
+OpMemberName %LocalConstants 3 "eye"
+OpMemberName %LocalConstants 4 "light"
+OpName %__0 ""
+```
+
+Here, we have the entries for our LocalConstants uniform buffer, its members, and their position within the struct. We see again an unnamed %__0 variable. We’ll get to it shortly. SPIR-V allows you to define member decorations to provide additional information that is useful to determine the data layout and location within the struct:
+```
+OpMemberDecorate %LocalConstants 0 ColMajor
+OpMemberDecorate %LocalConstants 0 Offset 0
+OpMemberDecorate %LocalConstants 0 MatrixStride 16
+OpMemberDecorate %LocalConstants 1 ColMajor
+OpMemberDecorate %LocalConstants 1 Offset 64
+OpMemberDecorate %LocalConstants 1 MatrixStride 16
+OpMemberDecorate %LocalConstants 2 ColMajor
+OpMemberDecorate %LocalConstants 2 Offset 128
+OpMemberDecorate %LocalConstants 2 MatrixStride 16
+OpMemberDecorate %LocalConstants 3 Offset 192
+OpMemberDecorate %LocalConstants 4 Offset 208
+OpDecorate %LocalConstants Block
+```
+
+The next two lines define the descriptor set and binding for our struct:
+```
+OpDecorate %__0 DescriptorSet 0
+OpDecorate %__0 Binding 0
+```
+As you can see, these decorations refer to the unnamed %__0 variable. We have now reached the section where the variable types are defined:
+```
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%uint = OpTypeInt 32 0
+%uint_1 = OpConstant %uint 1
+%_arr_float_uint_1 = OpTypeArray %float %uint_1
+%gl_PerVertex = OpTypeStruct %v4float %float %_arr_float_uint_1 %_arr_float_uint_1
+%_ptr_Output_gl_PerVertex = OpTypePointer Output %gl_PerVertex
+%_ = OpVariable %_ptr_Output_gl_PerVertex Output
+```
+
+For each variable, we have its type and, depending on the type, additional information that is relevant to it. For instance, the %float variable is of type 32-bit float; the %v4float variable is of type vector, and it contains 4 %float values. This corresponds to vec4 in GLSL. We then have a constant definition for an unsigned value of 1 and a fixed-sized array of the float type and length of 1.
+
+The definition of the %gl_PerVertex variable follows. It is of the struct type and, as we have seen previously, it has four members. Their types are vec4 for gl_Position, float for gl_PointSize, and float[1] for gl_ClipDistance and gl_CullDistance.
+
+The SPIR-V specs require that each variable that can be read or written to is referred to by a pointer. And that’s exactly what we see with `%_ptr_Output_gl_PerVertex`: it’s a pointer to the gl_PerVertex struct. Finally, we can see the type for the unnamed %_ variable is a pointer to the 
+gl_PerVertex struct.
+
+Finally, we have the type definitions for our own uniform data:
+```
+%LocalConstants = OpTypeStruct %mat4v4float %mat4v4float %mat4v4float %v4float %v4float
+%_ptr_Uniform_LocalConstants = OpTypePointer Uniform %LocalConstants
+%__0 = OpVariable %_ptr_Uniform_LocalConstants Uniform
+```
+
+As before, we can see that %LocalConstants is a struct with five members, three of the mat4 type and two of the vec4 type. We then have the type definition of the pointer to our uniform struct and finally, the %__0 variable of this type. Notice that this variable has the Uniform attribute. This means it is read-only and we will make use of this information later to determine the type of descriptor to add to the pipeline layout.
+
+The rest of the disassembly contains the input and output variable definitions. Their definition follows the same structure as the variables we have seen so far, so we are not going to analyze them all here. The disassembly also contains the instructions for the body of the shader. While it is interesting to see how the GLSL code is translated into SPIR-V instructions, this detail is not relevant to the pipeline creation, and we are not going to cover it here.
+
+Next, we are going to show how we can leverage all of this data to automate pipeline creation.
+
+### From SPIR-V to pipeline layout
+
+Even if Khrono provides a parser for SPIR-V data into pipeline layout ( https://github.com/KhronosGroup/SPIRV-Reflect ), we will create our own to see how it works.
+
+`spirv_parser.hpp`
+```
+#pragma once
+
+#include "foundation/array.hpp"
+#include "graphics/gpu_resources.hpp"
+
+#if defined(_MSC_VER)
+#include <spirv-headers/spirv.h>
+#else
+#include <spirv_cross/spirv.h>
+#endif
+#include <vulkan/vulkan.h>
+
+namespace raptor {
+
+    struct StringBuffer;
+
+namespace spirv {
+
+  static const u32 MAX_SET_COUNT = 32;
+
+  struct ParseResult {
+    u32 set_count;
+    DescriptorSetLayoutCreation sets[MAX_SET_COUNT];
+  };
+
+  void parse_binary( const u32* data, size_t data_size, 
+    StringBuffer& name_buffer, ParseResult* parse_result );
+
+} // namespace spirv
+} // namespace raptor
+```
+
+`spirv_parser.cpp`
+```
+#include "graphics/spirv_parser.hpp"
+
+#include "foundation/numerics.hpp"
+#include "foundation/string.hpp"
+
+#include <string.h>
+
+namespace raptor {
+namespace spirv {
+
+static const u32        k_bindless_texture_binding = 10;
+
+struct Member
+{
+  u32 id_index;
+  u32 offset;
+
+  StringView name;
+};
+
+struct Id
+{
+  SpvOp op;
+  u32 set;
+  u32 binding;
+
+  // For integers and floats
+  u8 width;
+  u8 sign;
+
+  // For arrays, vectors and matrices
+  u32 type_index;
+  u32 count;
+
+  // For variables
+  SpvStorageClass storage_class;
+
+  // For constants
+  u32 value;
+
+  // For structs
+  StringView name;
+  Array<Member> members;
+};
+
+VkShaderStageFlags parse_execution_model( SpvExecutionModel model )
+{
+  switch ( model )
+  {
+    case ( SpvExecutionModelVertex ):
+    {
+      return VK_SHADER_STAGE_VERTEX_BIT;
+    }
+    case ( SpvExecutionModelGeometry ):
+    {
+      return VK_SHADER_STAGE_GEOMETRY_BIT;
+    }
+    case ( SpvExecutionModelFragment ):
+    {
+      return VK_SHADER_STAGE_FRAGMENT_BIT;
+    }
+    case ( SpvExecutionModelKernel ):
+    {
+      return VK_SHADER_STAGE_COMPUTE_BIT;
+    }
+  }
+
+  return 0;
+}
+
+void parse_binary( const u32* data, size_t data_size, 
+  StringBuffer& name_buffer, ParseResult* parse_result ) 
+{  
+  RASSERT( ( data_size % 4 ) == 0 );
+  u32 spv_word_count = safe_cast<u32>( data_size / 4 );
+
+  u32 magic_number = data[ 0 ];
+  RASSERT( magic_number == 0x07230203 );
+
+  u32 id_bound = data[3];
+
+  Allocator* allocator = &MemoryService::instance()->system_allocator;
+  Array<Id> ids;
+  ids.init(  allocator, id_bound, id_bound );
+
+  memset( ids.data, 0, id_bound * sizeof( Id ) );
+
+  VkShaderStageFlags stage;
+
+  size_t word_index = 5;
+  while ( word_index < spv_word_count ) {
+    SpvOp op = ( SpvOp )( data[ word_index ] & 0xFF );
+    u16 word_count = ( u16 )( data[ word_index ] >> 16 );
+
+    switch( op ) {
+
+      case ( SpvOpEntryPoint ):
+      {
+        RASSERT( word_count >= 4 );
+
+        SpvExecutionModel model = ( SpvExecutionModel )data[ word_index + 1 ];
+
+        stage = parse_execution_model( model );
+        RASSERT( stage != 0 );
+
+        break;
+      }
+
+      case ( SpvOpDecorate ):
+      {
+        RASSERT( word_count >= 3 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+
+        SpvDecoration decoration = ( SpvDecoration )data[ word_index + 2 ];
+        switch ( decoration )
+        {
+            case ( SpvDecorationBinding ):
+            {
+              id.binding = data[ word_index + 3 ];
+              break;
+            }
+
+            case ( SpvDecorationDescriptorSet ):
+            {
+              id.set = data[ word_index + 3 ];
+              break;
+            }
+        }
+
+        break;
+      }
+
+      case ( SpvOpMemberDecorate ):
+      {
+        RASSERT( word_count >= 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+
+        u32 member_index = data[ word_index + 2 ];
+
+        if ( id.members.capacity == 0 ) {
+          id.members.init( allocator, 64, 64 );
+        }
+
+        Member& member = id.members[ member_index ];
+
+        SpvDecoration decoration = ( SpvDecoration )data[ word_index + 3 ];
+        switch ( decoration )
+        {
+          case ( SpvDecorationOffset ):
+          {
+            member.offset = data[ word_index + 4 ];
+            break;
+          }
+        }
+
+        break;
+      }
+
+      case ( SpvOpName ):
+      {
+        RASSERT( word_count >= 3 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+
+        char* name = ( char* )( data + ( word_index + 2 ) );
+        char* name_view = name_buffer.append_use( name );
+
+        id.name.text = name_view;
+        id.name.length = strlen( name_view );
+
+        break;
+      }
+
+      case ( SpvOpMemberName ):
+      {
+        RASSERT( word_count >= 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+
+        u32 member_index = data[ word_index + 2 ];
+
+        if ( id.members.capacity == 0 ) {
+          id.members.init( allocator, 64, 64 );
+        }
+
+        Member& member = id.members[ member_index ];
+
+        char* name = ( char* )( data + ( word_index + 3 ) );
+        char* name_view = name_buffer.append_use( name );
+
+        member.name.text = name_view;
+        member.name.length = strlen( name_view );
+
+        break;
+      }
+
+      case ( SpvOpTypeInt ):
+      {
+        RASSERT( word_count == 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.width = ( u8 )data[ word_index + 2 ];
+        id.sign = ( u8 )data[ word_index + 3 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeFloat ):
+      {
+        RASSERT( word_count == 3 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.width = ( u8 )data[ word_index + 2 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeVector ):
+      {
+        RASSERT( word_count == 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 2 ];
+        id.count = data[ word_index + 3 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeMatrix ):
+      {
+        RASSERT( word_count == 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 2 ];
+        id.count = data[ word_index + 3 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeImage ):
+      {
+        // NOTE(marco): not sure we need this information just yet
+        RASSERT( word_count >= 9 );
+
+        break;
+      }
+
+      case ( SpvOpTypeSampler ):
+      {
+        RASSERT( word_count == 2 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+
+        break;
+      }
+
+      case ( SpvOpTypeSampledImage ):
+      {
+        RASSERT( word_count == 3 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+
+        break;
+      }
+
+      case ( SpvOpTypeArray ):
+      {
+        RASSERT( word_count == 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 2 ];
+        id.count = data[ word_index + 3 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeRuntimeArray ):
+      {
+        RASSERT( word_count == 3 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 2 ];
+
+        break;
+      }
+
+      case ( SpvOpTypeStruct ):
+      {
+        RASSERT( word_count >= 2 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+
+        if ( word_count > 2 ) {
+          for ( u16 member_index = 0; member_index < word_count - 2; ++member_index ) {
+            id.members[ member_index ].id_index = data[ word_index + member_index + 2 ];
+          }
+        }
+
+        break;
+      }
+
+      case ( SpvOpTypePointer ):
+      {
+        RASSERT( word_count == 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 3 ];
+
+        break;
+      }
+
+      case ( SpvOpConstant ):
+      {
+        RASSERT( word_count >= 4 );
+
+        u32 id_index = data[ word_index + 1 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 2 ];
+        id.value = data[ word_index + 3 ]; // NOTE(marco): we assume all constants to have maximum 32bit width
+
+        break;
+      }
+
+      case ( SpvOpVariable ):
+      {
+        RASSERT( word_count >= 4 );
+
+        u32 id_index = data[ word_index + 2 ];
+        RASSERT( id_index < id_bound );
+
+        Id& id= ids[ id_index ];
+        id.op = op;
+        id.type_index = data[ word_index + 1 ];
+        id.storage_class = ( SpvStorageClass )data[ word_index + 3 ];
+
+        break;
+      }
+    }
+  }
+
+  word_index += word_count;
+
+  for ( u32 id_index = 0; id_index < ids.size; ++id_index ) {
+    Id& id= ids[ id_index ];
+
+    if ( id.op == SpvOpVariable ) {
+      switch ( id.storage_class ) {
+        case ( SpvStorageClassUniform ):
+        case ( SpvStorageClassUniformConstant ):
+        {
+          if ( id.set == 1 && 
+            ( id.binding == k_bindless_texture_binding 
+            || id.binding == ( k_bindless_texture_binding + 1 )) ) {
+            // These are managed by the GPU device
+            continue;
+          }
+
+          // NOTE(marco): get actual type
+          Id& uniform_type = ids[ ids[ id.type_index ].type_index ];
+
+          DescriptorSetLayoutCreation& setLayout = parse_result->sets[ id.set ];
+          setLayout.set_set_index( id.set );
+
+          DescriptorSetLayoutCreation::Binding binding{ };
+          binding.start = id.binding;
+          binding.count = 1;
+
+          switch ( uniform_type.op ) {
+            case (SpvOpTypeStruct):
+            {
+              binding.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+              binding.name = uniform_type.name.text;
+              break;
+            }
+
+            case (SpvOpTypeSampledImage):
+            {
+              binding.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+              binding.name = id.name.text;
+              break;
+            }
+          }
+
+          setLayout.add_binding_at_index( binding, id.binding );
+
+          parse_result->set_count = max( parse_result->set_count, ( id.set + 1 ) );
+
+          break;
+        }
+      }
+    }
+
+    id.members.shutdown();
+  }
+
+  ids.shutdown();
+}
+
+} // namespace spirv
+} // namespace raptor
+```
+
+We have to define an empty spirv::ParseResult structure that will contain the result of the parsing. Its definition is quite simple:
+```
+struct ParseResult {
+  u32 set_count;
+  DescriptorSetLayoutCreation sets[MAX_SET_COUNT];
+};
+```
+
+We need to predeclare that Struct into `gpu_resources.hpp`:
+
+```
+...
+namespace raptor {
+
+namespace spirv {
+    struct ParseResult;
+} // namespace spirv
+...
+```
+
+
+It contains the number of sets that we identified from the binary data and the list of entries for each set. The first step of the parsing is to make sure that we are reading valid SPIR-V data:
+```
+u32 spv_word_count = safe_cast<u32>( data_size / 4 );
+u32 magic_number = data[ 0 ];
+u32 id_bound = data[3];
+```
+
+We first compute the number of 32-bit words that are included in the binary. Then we verify that the first four bytes match the magic number that identifies a SPIR-V binary. Finally, we retrieve the number of IDs that are defined in the binary.
+
+Next, we loop over all the words in the binary to retrieve the information we need. Each ID definition starts with the Op type and the number of words that it is composed of:
+```
+SpvOp op = ( SpvOp )( data[ word_index ] & 0xFF );
+u16 word_count = ( u16 )( data[ word_index ] >> 16 );
+```
+
+The Op type is stored in the bottom 16 bits of the word, and the word count is in the top 16 bits. Next, we parse the data for the Op types we are interested in. We start with the type of shader we are currently parsing:
+```
+case ( SpvOpEntryPoint ):
+{
+  SpvExecutionModel model = ( SpvExecutionModel )data[word_index + 1 ];
+  stage = parse_execution_model( model );
+  break;
+}
+```
+
+We extract the execution model, translate it into a VkShaderStageFlags value, and store it in the stage variable. Next, we parse the descriptor set index and binding:
+```
+case ( SpvOpDecorate ):
+{
+  u32 id_index = data[ word_index + 1 ];
+  Id& id = ids[ id_index ];
+  SpvDecoration decoration = ( SpvDecoration )data[ word_index + 2 ];
+  switch ( decoration )
+  {
+    case ( SpvDecorationBinding ):
+    {
+      id.binding = data[ word_index + 3 ];
+      break;
+    }
+    case ( SpvDecorationDescriptorSet ):
+    {
+      id.set = data[ word_index + 3 ];
+      break;
+    }
+  }
+  break;
+}
+```
+
+First, we retrieve the index of the ID. As we mentioned previously, variables can be forward declared, and we might have to update the values for the same ID multiple times. Next, we retrieve the value of the decoration. We are only interested in the descriptor set index (SpvDecorationDescriptorSet) and binding (SpvDecorationBinding) and we store their values in the entry for this ID.
+
+We follow with an example of a variable type:
+```
+case ( SpvOpTypeVector ):
+{
+  u32 id_index = data[ word_index + 1 ];
+  Id& id= ids[ id_index ];
+  id.op = op;
+  id.type_index = data[ word_index + 2 ];
+  id.count = data[ word_index + 3 ];
+  break;
+}
+```
+
+As we saw in the disassembly, a vector is defined by its entry type and count. We store them in the type_index and count members of the ID struct. Here, we also see how an ID can refer to another one if needed. The type_index member stores the index to another entry in the ids array and can be used later to retrieve additional type information.
+
+Next, we have a sampler definition:
+```
+case ( SpvOpTypeSampler ):
+{
+  u32 id_index = data[ word_index + 1 ];
+  RASSERT( id_index < id_bound );
+  Id& id= ids[ id_index ];
+  id.op = op;
+  break;
+}
+```
+We only need to store the Op type for this entry. 
+
+Finally, we have the entry for a variable type:
+```
+case ( SpvOpVariable ):
+{
+  u32 id_index = data[ word_index + 2 ];
+  Id& id= ids[ id_index ];
+  id.op = op;
+  id.type_index = data[ word_index + 1 ];
+  id.storage_class = ( SpvStorageClass )data[
+  word_index + 3 ];
+  break;
+}
+```
+The relevant information for this entry is type_index, which will always refer to an entry of pointer type and the storage class. The storage class tells us which entries are variables that we are interested in and which ones we can skip.
+
+And that is exactly what the next part of the code is doing. Once we finish parsing all IDs, we loop over each ID entry and identify the ones we are interested in. We first identify all variables:
+```
+for ( u32 id_index = 0; id_index < ids.size; ++id_index ) {
+ Id& id= ids[ id_index ];
+ if ( id.op == SpvOpVariable ) {
+```
+Next, we use the variable storage class to determine whether it is a uniform variable:
+```
+switch ( id.storage_class ) {
+ case ( SpvStorageClassUniform ):
+ case ( SpvStorageClassUniformConstant ):
+ {
+```
+We are only interested in the Uniform and UniformConstant variables. We then retrieve the 
+uniform type. Remember, there is a double indirection to retrieve the actual type of a variable: first, 
+we get the pointer type, and from the pointer type, we get to the real type of the variable. We 
+have highlighted the code that does this:
+
+```
+Id& uniform_type = ids[ ids[ id.type_index ].type_index ];
+
+DescriptorSetLayoutCreation& setLayout = cparse_result->sets[ id.set ];
+setLayout.set_set_index( id.set );
+DescriptorSetLayoutCreation::Binding binding{ };
+
+binding.start = id.binding;
+binding.count = 1;
+```
+
+After retrieving the type, we get the DescriptorSetLayoutCreation entry for the set this variable is part of. We then create a new binding entry and store the binding value. We always assume a count of 1 for each resource.
+
+In this last step, we determine the resource type for this binding and add its entry to the set layout:
+```
+switch ( uniform_type.op ) {
+  case (SpvOpTypeStruct):
+  {
+    binding.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.name = uniform_type.name.text;
+    break;
+  }
+  case (SpvOpTypeSampledImage):
+  {
+    binding.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binding.name = id.name.text;
+    break;
+  }
+}
+setLayout.add_binding_at_index( binding, id.binding );
+```
+
+We use the Op type to determine the type of resource we have found. So far, we are only interested in Struct for uniform buffers and SampledImage for textures. We are going to add support for more types in further lessons.
+
+While it’s possible to distinguish between uniform buffers and storage buffers, the binary data cannot determine whether a buffer is dynamic or not. In our implementation, the application code needs to specify this detail. An alternative would be to use a naming convention (prefixing dynamic buffers with dyn_, for  instance) so that dynamic buffers can be automatically identified.
+
+Note that the last line of code won't compile you need to create the `add_binding_at_index` function into your code:
+
+```
+
+```
+
+This concludes our introduction to the SPIR-V binary format. It might take a couple of readings to fully understand how it works, but don’t worry, it certainly took us a few iterations to fully understand it!
+
+Knowing how to parse SPIR-V data is an important tool to automate other aspects of graphics development. It can be used, for instance, to automate the generation of C++ headers to keep CPU and GPU structs in sync. You could expand this implementation to add support for the features you might need! 
+
+In the next and final section of this lesson, we are going to add pipeline caching to our GPU device implementation.
+
+
 
 
 
