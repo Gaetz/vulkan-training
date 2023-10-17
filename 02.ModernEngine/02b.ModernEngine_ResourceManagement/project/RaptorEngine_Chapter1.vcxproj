@@ -179,6 +179,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClInclude Include="..\source\raptor\foundation\service_manager.hpp" />
     <ClInclude Include="..\source\raptor\foundation\string.hpp" />
     <ClInclude Include="..\source\raptor\foundation\time.hpp" />
+    <ClInclude Include="spirv_parser.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\chapter1\graphics\command_buffer.cpp" />
@@ -219,6 +220,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClCompile Include="..\source\raptor\foundation\service_manager.cpp" />
     <ClCompile Include="..\source\raptor\foundation\string.cpp" />
     <ClCompile Include="..\source\raptor\foundation\time.cpp" />
+    <ClCompile Include="spirv_parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\source\chapter1\shaders\main.frag" />

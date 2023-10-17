@@ -1543,9 +1543,30 @@ While it’s possible to distinguish between uniform buffers and storage buffers
 
 Note that the last line of code won't compile you need to create the `add_binding_at_index` function into your code:
 
+`gpu_resources.hpp`
+```
+...
+struct DescriptorSetLayoutCreation {
+...
+  // Building helpers
+...
+  DescriptorSetLayoutCreation& add_binding_at_index( const Binding& binding, int index );
+...
+}; // struct DescriptorSetLayoutCreation
 ```
 
+`gpu_resources.cpp`
 ```
+DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding_at_index( 
+  const Binding& binding, int index 
+) {
+  bindings[index] = binding;
+  num_bindings = (index + 1) > num_bindings ? (index + 1) : num_bindings;
+  return *this;
+}
+```
+
+
 
 This concludes our introduction to the SPIR-V binary format. It might take a couple of readings to fully understand how it works, but don’t worry, it certainly took us a few iterations to fully understand it!
 

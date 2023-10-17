@@ -582,9 +582,8 @@ VkPipelineStageFlags util_determine_pipeline_stage_flags( VkAccessFlags access_f
     return flags;
 }
 
-
 void util_add_image_barrier( GpuDevice* gpu, VkCommandBuffer command_buffer, VkImage image, ResourceState old_state, ResourceState new_state, u32 base_mip_level, u32 mip_count, bool is_depth ) {
-    
+
     VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
     barrier.image = image;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

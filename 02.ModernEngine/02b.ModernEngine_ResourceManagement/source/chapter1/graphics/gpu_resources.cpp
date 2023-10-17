@@ -1,4 +1,5 @@
 #include "gpu_resources.hpp"
+
 #include "gpu_device.hpp"
 
 namespace raptor {
@@ -187,6 +188,12 @@ DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::reset() {
 
 DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding( const Binding& binding ) {
     bindings[num_bindings++] = binding;
+    return *this;
+}
+
+DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding_at_index( const Binding& binding, int index ) {
+    bindings[index] = binding;
+    num_bindings = (index + 1) > num_bindings ? (index + 1) : num_bindings;
     return *this;
 }
 

@@ -9,6 +9,10 @@
 
 namespace raptor {
 
+namespace spirv {
+    struct ParseResult;
+} // namespace spirv
+
 struct Allocator;
 struct GpuDevice;
 
@@ -307,6 +311,7 @@ struct DescriptorSetLayoutCreation {
     // Building helpers
     DescriptorSetLayoutCreation&    reset();
     DescriptorSetLayoutCreation&    add_binding( const Binding& binding );
+    DescriptorSetLayoutCreation&    add_binding_at_index( const Binding& binding, int index );
     DescriptorSetLayoutCreation&    set_name( cstring name );
     DescriptorSetLayoutCreation&    set_set_index( u32 index );
 
