@@ -1,5 +1,6 @@
 #include "graphics/gpu_device.hpp"
 #include "graphics/command_buffer.hpp"
+#include "graphics/spirv_parser.hpp"
 
 #include "foundation/memory.hpp"
 #include "foundation/hash_map.hpp"
@@ -96,14 +97,18 @@ void CommandBufferRing::init( GpuDevice* gpu_ ) {
         check( vkAllocateCommandBuffers( gpu->vulkan_device, &cmd, &command_buffers[ i ].vk_command_buffer ) );
 
         command_buffers[ i ].gpu_device = gpu;
+        command_buffers[ i ].init( QueueType::Enum::Graphics, 0, 0, false );
         command_buffers[ i ].handle = i;
-        command_buffers[ i ].reset();
     }
 }
 
 void CommandBufferRing::shutdown() {
     for ( u32 i = 0; i < k_max_swapchain_images * k_max_threads; i++ ) {
         vkDestroyCommandPool( gpu->vulkan_device, vulkan_command_pools[ i ], gpu->vulkan_allocation_callbacks );
+    }
+
+    for ( u32 i = 0; i < k_max_buffers; i++ ) {
+        command_buffers[ i ].terminate();
     }
 }
 
@@ -932,7 +937,7 @@ static void vulkan_create_texture( GpuDevice& gpu, const TextureCreation& creati
         image_info.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
     } else {
-        image_info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT; // TODO
+        image_info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT; // TODO
         image_info.usage |= is_render_target ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0;
     }
 
@@ -962,7 +967,7 @@ static void vulkan_create_texture( GpuDevice& gpu, const TextureCreation& creati
         info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     }
 
-    info.subresourceRange.levelCount = 1;
+    info.subresourceRange.levelCount = creation.mipmaps;
     info.subresourceRange.layerCount = 1;
     check( vkCreateImageView( gpu.vulkan_device, &info, gpu.vulkan_allocation_callbacks, &texture->vk_image_view ) );
 
@@ -1057,12 +1062,49 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { creation.width, creation.height, creation.depth };
 
- 	// Transition
-        transition_image_layout( command_buffer->vk_command_buffer, texture->vk_image, texture->vk_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, false );
-        // Copy
+        // Copy from the staging buffer to the image
+        add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, 0, 1, false );
+
         vkCmdCopyBufferToImage( command_buffer->vk_command_buffer, staging_buffer, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
+        // Prepare first mip to create lower mipmaps
+        if ( creation.mipmaps > 1 ) {
+            add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, 0, 1, false );
+        }
+
+        i32 w = creation.width;
+        i32 h = creation.height;
+
+        for ( int mip_index = 1; mip_index < creation.mipmaps; ++mip_index ) {
+            add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, mip_index, 1, false );
+
+            VkImageBlit blit_region{ };
+            blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit_region.srcSubresource.mipLevel = mip_index - 1;
+            blit_region.srcSubresource.baseArrayLayer = 0;
+            blit_region.srcSubresource.layerCount = 1;
+
+            blit_region.srcOffsets[0] = { 0, 0, 0 };
+            blit_region.srcOffsets[1] = { w, h, 1 };
+
+            w /= 2;
+            h /= 2;
+
+            blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit_region.dstSubresource.mipLevel = mip_index;
+            blit_region.dstSubresource.baseArrayLayer = 0;
+            blit_region.dstSubresource.layerCount = 1;
+
+            blit_region.dstOffsets[0] = { 0, 0, 0 };
+            blit_region.dstOffsets[1] = { w, h, 1 };
+
+            vkCmdBlitImage( command_buffer->vk_command_buffer, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region, VK_FILTER_LINEAR );
+
+            // Prepare current mip for next level
+            add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, mip_index, 1, false );
+        }
+
         // Transition
-        transition_image_layout( command_buffer->vk_command_buffer, texture->vk_image, texture->vk_format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false );
+        add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, (creation.mipmaps > 1) ? RESOURCE_STATE_COPY_SOURCE : RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_SHADER_RESOURCE, 0, creation.mipmaps, false );
 
         vkEndCommandBuffer( command_buffer->vk_command_buffer );
 
@@ -1211,6 +1253,13 @@ ShaderStateHandle GpuDevice::create_shader_state( const ShaderStateCreation& cre
 
     sizet current_temporary_marker = temporary_allocator->get_marker();
 
+    StringBuffer name_buffer;
+    name_buffer.init( 4096, temporary_allocator );
+
+    // Parse result needs to be always in memory as its used to free descriptor sets.
+    shader_state->parse_result = ( spirv::ParseResult* )allocator->allocate( sizeof( spirv::ParseResult ), 64 );
+    memset( shader_state->parse_result, 0, sizeof( spirv::ParseResult ) );
+
     for ( compiled_shaders = 0; compiled_shaders < creation.stages_count; ++compiled_shaders ) {
         const ShaderStage& stage = creation.stages[ compiled_shaders ];
 
@@ -1240,6 +1289,7 @@ ShaderStateHandle GpuDevice::create_shader_state( const ShaderStateCreation& cre
             break;
         }
 
+        spirv::parse_binary( shader_create_info.pCode, shader_create_info.codeSize, name_buffer, shader_state->parse_result );
         // Not needed anymore - temp allocator freed at the end.
         //if ( compiled ) {
         //    rfree( ( void* )createInfo.pCode, allocator );
@@ -1295,14 +1345,14 @@ PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation ) {
 
     VkDescriptorSetLayout vk_layouts[ k_max_descriptor_set_layouts ];
 
-    u32 num_active_layouts = creation.num_active_layouts;
+    u32 num_active_layouts = shader_state_data->parse_result->set_count;
 
     // Create VkPipelineLayout
-    for ( u32 l = 0; l < creation.num_active_layouts; ++l ) {
-        pipeline->descriptor_set_layout[ l ] = access_descriptor_set_layout( creation.descriptor_set_layout[ l ] );
-        pipeline->descriptor_set_layout_handle[ l ] = creation.descriptor_set_layout[ l ];
+    for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
+        pipeline->descriptor_set_layout_handle[ l ] = create_descriptor_set_layout( shader_state_data->parse_result->sets[ l ] );
+        pipeline->descriptor_set[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
 
-        vk_layouts[ l ] = pipeline->descriptor_set_layout[ l ]->vk_descriptor_set_layout;
+        vk_layouts[ l ] = pipeline->descriptor_set[ l ]->vk_descriptor_set_layout;
     }
 
     // Add bindless resource layout after other layouts.
@@ -2224,6 +2274,12 @@ void GpuDevice::destroy_pipeline( PipelineHandle pipeline ) {
         resource_deletion_queue.push( { ResourceDeletionType::Pipeline, pipeline.index, current_frame } );
         // Shader state creation is handled internally when creating a pipeline, thus add this to track correctly.
         Pipeline* v_pipeline = access_pipeline( pipeline );
+
+        ShaderState* shader_state_data = access_shader_state( v_pipeline->shader_state );
+        for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
+            destroy_descriptor_set_layout( v_pipeline->descriptor_set_layout_handle[ l ] );
+        }
+
         destroy_shader_state( v_pipeline->shader_state );
     } else {
         rprint( "Graphics error: trying to free invalid Pipeline %u\n", pipeline.index );
@@ -2265,6 +2321,10 @@ void GpuDevice::destroy_render_pass( RenderPassHandle render_pass ) {
 void GpuDevice::destroy_shader_state( ShaderStateHandle shader ) {
     if ( shader.index < shaders.pool_size ) {
         resource_deletion_queue.push( { ResourceDeletionType::ShaderState, shader.index, current_frame } );
+
+        ShaderState* state = access_shader_state( shader );
+
+        allocator->deallocate( state->parse_result );
     } else {
         rprint( "Graphics error: trying to free invalid Shader %u\n", shader.index );
     }

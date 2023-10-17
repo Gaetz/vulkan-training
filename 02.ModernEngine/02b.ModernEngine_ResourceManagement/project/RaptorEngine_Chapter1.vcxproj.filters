@@ -164,7 +164,7 @@
     <ClInclude Include="..\source\chapter1\graphics\raptor_imgui.hpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClInclude>
-    <ClInclude Include="spirv_parser.hpp">
+    <ClInclude Include="..\source\chapter1\graphics\spirv_parser.hpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClInclude>
   </ItemGroup>
@@ -283,7 +283,7 @@
     <ClCompile Include="..\source\chapter1\graphics\raptor_imgui.cpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="spirv_parser.cpp">
+    <ClCompile Include="..\source\chapter1\graphics\spirv_parser.cpp">
       <Filter>RaptorEngine\Graphics</Filter>
     </ClCompile>
   </ItemGroup>

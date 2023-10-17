@@ -140,6 +140,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClInclude Include="..\source\chapter1\graphics\gpu_resources.hpp" />
     <ClInclude Include="..\source\chapter1\graphics\raptor_imgui.hpp" />
     <ClInclude Include="..\source\chapter1\graphics\renderer.hpp" />
+    <ClInclude Include="..\source\chapter1\graphics\spirv_parser.hpp" />
     <ClInclude Include="..\source\external\imgui\imconfig.h" />
     <ClInclude Include="..\source\external\imgui\imgui.h" />
     <ClInclude Include="..\source\external\imgui\imgui_impl_sdl.h" />
@@ -179,7 +180,6 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClInclude Include="..\source\raptor\foundation\service_manager.hpp" />
     <ClInclude Include="..\source\raptor\foundation\string.hpp" />
     <ClInclude Include="..\source\raptor\foundation\time.hpp" />
-    <ClInclude Include="spirv_parser.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\chapter1\graphics\command_buffer.cpp" />
@@ -188,6 +188,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClCompile Include="..\source\chapter1\graphics\gpu_resources.cpp" />
     <ClCompile Include="..\source\chapter1\graphics\raptor_imgui.cpp" />
     <ClCompile Include="..\source\chapter1\graphics\renderer.cpp" />
+    <ClCompile Include="..\source\chapter1\graphics\spirv_parser.cpp" />
     <ClCompile Include="..\source\chapter1\main.cpp" />
     <ClCompile Include="..\source\external\imgui\imgui.cpp" />
     <ClCompile Include="..\source\external\imgui\imgui_demo.cpp" />
@@ -220,7 +221,6 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClCompile Include="..\source\raptor\foundation\service_manager.cpp" />
     <ClCompile Include="..\source\raptor\foundation\string.cpp" />
     <ClCompile Include="..\source\raptor\foundation\time.cpp" />
-    <ClCompile Include="spirv_parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\source\chapter1\shaders\main.frag" />

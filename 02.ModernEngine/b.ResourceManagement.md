@@ -209,7 +209,7 @@ We have added the bindless_flags values to enable partial updates to the descrip
 
 ### Updating the descriptor set
 
-Now, when we call ``vulkan_create_texture``, the newly created resource gets added to the ``texture_to_update_bindless`` array:
+Now, when we call `vulkan_create_texture`, the newly created resource gets added to the `texture_to_update_bindless` array:
 
 ```
 static void vulkan_create_texture(
@@ -1565,14 +1565,241 @@ DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding_at_index(
   return *this;
 }
 ```
+We will now update the device:
 
+`gpu_device.cpp`
+```
+#include "graphics/spirv_parser.hpp"
+...
+void CommandBufferRing::init( GpuDevice* gpu_ ) {
+  ...
+  for ( u32 i = 0; i < k_max_buffers; i++ ) {
+    ...
+    command_buffers[ i ].gpu_device = gpu;
+    command_buffers[ i ].init( QueueType::Enum::Graphics, 0, 0, false );
+    command_buffers[ i ].handle = i;
+  }
+}
+...
+void CommandBufferRing::shutdown() {
+    for ( u32 i = 0; i < k_max_swapchain_images * k_max_threads; i++ ) {
+      vkDestroyCommandPool( gpu->vulkan_device, vulkan_command_pools[ i ], gpu->vulkan_allocation_callbacks );
+    }
+    for ( u32 i = 0; i < k_max_buffers; i++ ) {
+      command_buffers[ i ].terminate();
+    }
+}
+...
+ShaderStateHandle GpuDevice::create_shader_state( const ShaderStateCreation& creation ) {
+  ...
+  sizet current_temporary_marker = temporary_allocator->get_marker();
 
+  StringBuffer name_buffer;
+  name_buffer.init( 4096, temporary_allocator );
+
+  // Parse result needs to be always in memory as its used to free descriptor sets.
+  shader_state->parse_result = ( spirv::ParseResult* )allocator->allocate( sizeof( spirv::ParseResult ), 64 );
+  memset( shader_state->parse_result, 0, sizeof( spirv::ParseResult ) );
+  
+  for ( compiled_shaders = 0; compiled_shaders < creation.stages_count; ++compiled_shaders ) {
+        ...
+        spirv::parse_binary( shader_create_info.pCode, shader_create_info.codeSize, 
+          name_buffer, shader_state->parse_result );
+        
+        set_resource_name( VK_OBJECT_TYPE_SHADER_MODULE, 
+          ( u64 )shader_state->shader_stage_info[ compiled_shaders ].module, creation.name );
+    }
+  ...
+}
+
+void GpuDevice::destroy_pipeline( PipelineHandle pipeline ) {
+  ...
+  Pipeline* v_pipeline = access_pipeline( pipeline );
+
+  ShaderState* shader_state_data = access_shader_state( v_pipeline->shader_state );
+  for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
+      destroy_descriptor_set_layout( v_pipeline->descriptor_set_layout_handle[ l ] );
+  }
+  ...
+}
+...
+void GpuDevice::destroy_shader_state( ShaderStateHandle shader ) {
+  if ( shader.index < shaders.pool_size ) {
+    resource_deletion_queue.push( { ResourceDeletionType::ShaderState, shader.index, current_frame } );
+
+    ShaderState* state = access_shader_state( shader );
+
+    allocator->deallocate( state->parse_result );
+  } else {
+    ...
+}
+```
+
+We also need to update the pipeline layout creation. By the way, we change the name of a variable and add a new one:
+
+`gpu_resourses.hpp`
+```
+struct Pipeline {
+...
+    const DesciptorSetLayout* descriptor_set[ k_max_descriptor_set_layouts ];
+...
+}; // struct PipelineVulkan
+
+struct ShaderState {
+...
+    spirv::ParseResult* parse_result;
+}; // struct ShaderStateVulkan
+```
+
+`gpu_device.cpp`
+```
+u32 num_active_layouts = shader_state_data->parse_result->set_count;
+
+// Create VkPipelineLayout
+for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
+  pipeline->descriptor_set_layout_handle[ l ] = create_descriptor_set_layout( shader_state_data->parse_result->sets[ l ] );
+  pipeline->descriptor_set[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
+
+  vk_layouts[ l ] = pipeline->descriptor_set[ l ]->vk_descriptor_set_layout;
+}
+
+// Add bindless resource layout after other layouts.
+// [TAG: BINDLESS]
+```
+
+We will also change two lines of code for ImGUI:
+`raptor_imgui.cpp`
+```
+if ( gpu->bindless_supported ) {
+  descriptor_set_layout_creation
+    .add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" } )
+    .add_binding( { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10, 1, "Texture" } )
+    .set_name( "RLL_ImGui" );
+}
+else {
+  descriptor_set_layout_creation
+    .add_binding( { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, 1, "LocalConstants" } )
+    .set_name( "RLL_ImGui" );
+  // LINE DELETED
+}
+...
+// Create descriptor set
+DescriptorSetCreation ds_creation{};
+if ( gpu->bindless_supported ) {       //  INVERSE CONDITION
+    ds_creation.set_layout( pipeline_creation.descriptor_set_layout[0] )
+    .buffer( g_ui_cb, 0 )
+    .texture( g_font_texture, 1 )
+    .set_name( "RL_ImGui" );
+} else {
+    ds_creation.set_layout( pipeline_creation.descriptor_set_layout[0] )
+    .buffer( g_ui_cb, 0 )
+    .set_name( "RL_ImGui" );
+}
+```
 
 This concludes our introduction to the SPIR-V binary format. It might take a couple of readings to fully understand how it works, but don’t worry, it certainly took us a few iterations to fully understand it!
 
 Knowing how to parse SPIR-V data is an important tool to automate other aspects of graphics development. It can be used, for instance, to automate the generation of C++ headers to keep CPU and GPU structs in sync. You could expand this implementation to add support for the features you might need! 
 
+We will now take time to add mipmap support into our code, before finishing the lesson with pipeline caching.
+
+## Adding mipmap support
+
+The steps are similar to what we did in the vulkan introduction lesson.
+
+`gpu_device.cpp`
+```
+static void vulkan_create_texture( GpuDevice& gpu, const TextureCreation& creation, TextureHandle handle, Texture* texture ) {
+...
+  } else {
+    image_info.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    image_info.usage |= is_render_target ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : 0;
+  }
+  ...
+  info.subresourceRange.levelCount = creation.mipmaps;
+  ...
+}
+...
+TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
+...
+  region.imageExtent = { creation.width, creation.height, creation.depth };
+
+  // Copy from the staging buffer to the image
+  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+    RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, 0, 1, false );
+
+  vkCmdCopyBufferToImage( command_buffer->vk_command_buffer, staging_buffer, 
+    texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
+  // Prepare first mip to create lower mipmaps
+  if ( creation.mipmaps > 1 ) {
+    add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+      RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, 0, 1, false );
+  }
+
+  i32 w = creation.width;
+  i32 h = creation.height;
+
+  for ( int mip_index = 1; mip_index < creation.mipmaps; ++mip_index ) {
+      add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+        RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, mip_index, 1, false );
+
+      VkImageBlit blit_region{ };
+      blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit_region.srcSubresource.mipLevel = mip_index - 1;
+      blit_region.srcSubresource.baseArrayLayer = 0;
+      blit_region.srcSubresource.layerCount = 1;
+
+      blit_region.srcOffsets[0] = { 0, 0, 0 };
+      blit_region.srcOffsets[1] = { w, h, 1 };
+
+      w /= 2;
+      h /= 2;
+
+      blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit_region.dstSubresource.mipLevel = mip_index;
+      blit_region.dstSubresource.baseArrayLayer = 0;
+      blit_region.dstSubresource.layerCount = 1;
+
+      blit_region.dstOffsets[0] = { 0, 0, 0 };
+      blit_region.dstOffsets[1] = { w, h, 1 };
+
+      vkCmdBlitImage( command_buffer->vk_command_buffer, texture->vk_image,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->vk_image, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region, VK_FILTER_LINEAR );
+
+      // Prepare current mip for next level
+      add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image,
+      RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, mip_index, 1, false );
+  }
+
+  // Transition
+  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+    (creation.mipmaps > 1) ? RESOURCE_STATE_COPY_SOURCE : RESOURCE_STATE_COPY_DEST, 
+    RESOURCE_STATE_SHADER_RESOURCE, 0, creation.mipmaps, false );
+
+  vkEndCommandBuffer( command_buffer->vk_command_buffer );
+...
+```
+
 In the next and final section of this lesson, we are going to add pipeline caching to our GPU device implementation.
+
+## Improving load times with a pipeline cache
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
