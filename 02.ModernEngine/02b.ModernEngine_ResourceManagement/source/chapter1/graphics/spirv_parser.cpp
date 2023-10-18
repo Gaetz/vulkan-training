@@ -47,22 +47,22 @@ namespace spirv {
     {
         switch (model)
         {
-        case (SpvExecutionModelVertex):
-        {
-            return VK_SHADER_STAGE_VERTEX_BIT;
-        }
-        case (SpvExecutionModelGeometry):
-        {
-            return VK_SHADER_STAGE_GEOMETRY_BIT;
-        }
-        case (SpvExecutionModelFragment):
-        {
-            return VK_SHADER_STAGE_FRAGMENT_BIT;
-        }
-        case (SpvExecutionModelKernel):
-        {
-            return VK_SHADER_STAGE_COMPUTE_BIT;
-        }
+		case (SpvExecutionModelVertex):
+		{
+		    return VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		case (SpvExecutionModelGeometry):
+		{
+		    return VK_SHADER_STAGE_GEOMETRY_BIT;
+		}
+		case (SpvExecutionModelFragment):
+		{
+		    return VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+		case (SpvExecutionModelKernel):
+		{
+		    return VK_SHADER_STAGE_COMPUTE_BIT;
+		}
         }
 
         return 0;

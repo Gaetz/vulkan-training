@@ -758,7 +758,7 @@ Let’s go in the following order:
 
 2. Second, and this is the crucial change, we need to wrap the index with the ``nonuniformEXT`` qualifier (https://github.com/KhronosGroup/GLSL/blob/master/extensions/ext/GL_EXT_nonuniform_qualifier.txt); this will basically synchronize the programs between the different executions to properly read the texture index, in case the index is different across different threads of the same shader invocation. This might sound complicated at first but think about it as a multithreading issue that needs synchronization to make sure the proper texture index is read in each thread and, as a result, the correct texture is used.
 
-3. Lastly, using the synchronized index we read from the global_textures array, we finally have the texture sample we wanted! 
+3. Lastly, using the synchronized index we read from the global_textures array, we finally have the texture sample we wanted!
 
 ### Conclusion
 
@@ -857,7 +857,7 @@ For each variable, we have its type and, depending on the type, additional infor
 
 The definition of the %gl_PerVertex variable follows. It is of the struct type and, as we have seen previously, it has four members. Their types are vec4 for gl_Position, float for gl_PointSize, and float[1] for gl_ClipDistance and gl_CullDistance.
 
-The SPIR-V specs require that each variable that can be read or written to is referred to by a pointer. And that’s exactly what we see with `%_ptr_Output_gl_PerVertex`: it’s a pointer to the gl_PerVertex struct. Finally, we can see the type for the unnamed %_ variable is a pointer to the 
+The SPIR-V specs require that each variable that can be read or written to is referred to by a pointer. And that’s exactly what we see with `%_ptr_Output_gl_PerVertex`: it’s a pointer to the gl_PerVertex struct. Finally, we can see the type for the unnamed %_ variable is a pointer to the
 gl_PerVertex struct.
 
 Finally, we have the type definitions for our own uniform data:
@@ -904,7 +904,7 @@ namespace spirv {
     DescriptorSetLayoutCreation sets[MAX_SET_COUNT];
   };
 
-  void parse_binary( const u32* data, size_t data_size, 
+  void parse_binary( const u32* data, size_t data_size,
     StringBuffer& name_buffer, ParseResult* parse_result );
 
 } // namespace spirv
@@ -983,9 +983,9 @@ VkShaderStageFlags parse_execution_model( SpvExecutionModel model )
   return 0;
 }
 
-void parse_binary( const u32* data, size_t data_size, 
-  StringBuffer& name_buffer, ParseResult* parse_result ) 
-{  
+void parse_binary( const u32* data, size_t data_size,
+  StringBuffer& name_buffer, ParseResult* parse_result )
+{
   RASSERT( ( data_size % 4 ) == 0 );
   u32 spv_word_count = safe_cast<u32>( data_size / 4 );
 
@@ -1320,8 +1320,8 @@ void parse_binary( const u32* data, size_t data_size,
         case ( SpvStorageClassUniform ):
         case ( SpvStorageClassUniformConstant ):
         {
-          if ( id.set == 1 && 
-            ( id.binding == k_bindless_texture_binding 
+          if ( id.set == 1 &&
+            ( id.binding == k_bindless_texture_binding
             || id.binding == ( k_bindless_texture_binding + 1 )) ) {
             // These are managed by the GPU device
             continue;
@@ -1470,7 +1470,7 @@ case ( SpvOpTypeSampler ):
   break;
 }
 ```
-We only need to store the Op type for this entry. 
+We only need to store the Op type for this entry.
 
 Finally, we have the entry for a variable type:
 ```
@@ -1500,9 +1500,9 @@ switch ( id.storage_class ) {
  case ( SpvStorageClassUniformConstant ):
  {
 ```
-We are only interested in the Uniform and UniformConstant variables. We then retrieve the 
-uniform type. Remember, there is a double indirection to retrieve the actual type of a variable: first, 
-we get the pointer type, and from the pointer type, we get to the real type of the variable. We 
+We are only interested in the Uniform and UniformConstant variables. We then retrieve the
+uniform type. Remember, there is a double indirection to retrieve the actual type of a variable: first,
+we get the pointer type, and from the pointer type, we get to the real type of the variable. We
 have highlighted the code that does this:
 
 ```
@@ -1557,8 +1557,8 @@ struct DescriptorSetLayoutCreation {
 
 `gpu_resources.cpp`
 ```
-DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding_at_index( 
-  const Binding& binding, int index 
+DescriptorSetLayoutCreation& DescriptorSetLayoutCreation::add_binding_at_index(
+  const Binding& binding, int index
 ) {
   bindings[index] = binding;
   num_bindings = (index + 1) > num_bindings ? (index + 1) : num_bindings;
@@ -1600,13 +1600,13 @@ ShaderStateHandle GpuDevice::create_shader_state( const ShaderStateCreation& cre
   // Parse result needs to be always in memory as its used to free descriptor sets.
   shader_state->parse_result = ( spirv::ParseResult* )allocator->allocate( sizeof( spirv::ParseResult ), 64 );
   memset( shader_state->parse_result, 0, sizeof( spirv::ParseResult ) );
-  
+
   for ( compiled_shaders = 0; compiled_shaders < creation.stages_count; ++compiled_shaders ) {
         ...
-        spirv::parse_binary( shader_create_info.pCode, shader_create_info.codeSize, 
+        spirv::parse_binary( shader_create_info.pCode, shader_create_info.codeSize,
           name_buffer, shader_state->parse_result );
-        
-        set_resource_name( VK_OBJECT_TYPE_SHADER_MODULE, 
+
+        set_resource_name( VK_OBJECT_TYPE_SHADER_MODULE,
           ( u64 )shader_state->shader_stage_info[ compiled_shaders ].module, creation.name );
     }
   ...
@@ -1699,7 +1699,7 @@ if ( gpu->bindless_supported ) {       //  INVERSE CONDITION
 
 This concludes our introduction to the SPIR-V binary format. It might take a couple of readings to fully understand how it works, but don’t worry, it certainly took us a few iterations to fully understand it!
 
-Knowing how to parse SPIR-V data is an important tool to automate other aspects of graphics development. It can be used, for instance, to automate the generation of C++ headers to keep CPU and GPU structs in sync. You could expand this implementation to add support for the features you might need! 
+Knowing how to parse SPIR-V data is an important tool to automate other aspects of graphics development. It can be used, for instance, to automate the generation of C++ headers to keep CPU and GPU structs in sync. You could expand this implementation to add support for the features you might need!
 
 We will now take time to add mipmap support into our code, before finishing the lesson with pipeline caching.
 
@@ -1725,14 +1725,14 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
   region.imageExtent = { creation.width, creation.height, creation.depth };
 
   // Copy from the staging buffer to the image
-  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image,
     RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, 0, 1, false );
 
-  vkCmdCopyBufferToImage( command_buffer->vk_command_buffer, staging_buffer, 
+  vkCmdCopyBufferToImage( command_buffer->vk_command_buffer, staging_buffer,
     texture->vk_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region );
   // Prepare first mip to create lower mipmaps
   if ( creation.mipmaps > 1 ) {
-    add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+    add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image,
       RESOURCE_STATE_COPY_DEST, RESOURCE_STATE_COPY_SOURCE, 0, 1, false );
   }
 
@@ -1740,7 +1740,7 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
   i32 h = creation.height;
 
   for ( int mip_index = 1; mip_index < creation.mipmaps; ++mip_index ) {
-      add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
+      add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image,
         RESOURCE_STATE_UNDEFINED, RESOURCE_STATE_COPY_DEST, mip_index, 1, false );
 
       VkImageBlit blit_region{ };
@@ -1764,7 +1764,7 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
       blit_region.dstOffsets[1] = { w, h, 1 };
 
       vkCmdBlitImage( command_buffer->vk_command_buffer, texture->vk_image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->vk_image, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->vk_image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region, VK_FILTER_LINEAR );
 
       // Prepare current mip for next level
@@ -1773,8 +1773,8 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
   }
 
   // Transition
-  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image, 
-    (creation.mipmaps > 1) ? RESOURCE_STATE_COPY_SOURCE : RESOURCE_STATE_COPY_DEST, 
+  add_image_barrier( command_buffer->vk_command_buffer, texture->vk_image,
+    (creation.mipmaps > 1) ? RESOURCE_STATE_COPY_SOURCE : RESOURCE_STATE_COPY_DEST,
     RESOURCE_STATE_SHADER_RESOURCE, 0, creation.mipmaps, false );
 
   vkEndCommandBuffer( command_buffer->vk_command_buffer );
@@ -1784,6 +1784,200 @@ TextureHandle GpuDevice::create_texture( const TextureCreation& creation ) {
 In the next and final section of this lesson, we are going to add pipeline caching to our GPU device implementation.
 
 ## Improving load times with a pipeline cache
+
+Each time we create a graphics pipeline and, to a lesser extent, a compute pipeline, the driver has to analyze and compile the shaders we have provided. It also has to inspect the state we have defined in the creation structure and translate it into instructions to program the different units of the GPU.
+
+This process is quite expensive, and it’s one of the reasons why, in Vulkan we have to define most of the pipeline state upfront. In this section, we are going to add pipeline caching to our GPU device implementation to improve loading times. If your application has to create thousands of pipelines, it can incur a significant startup
+time or, for a game, long loading times between levels.
+
+The technique described in this section will help to reduce the time spent creating pipelines. Thefirst change you will notice is that the `GpuDevice::create_pipeline` method accepts a new optional parameter that defines the path of a pipeline cache file:
+
+`gpu_device.hpp`
+```
+PipelineHandle create_pipeline( const PipelineCreation& creation,
+  const char* cache_path = nullptr );
+```
+
+In this function, we need to define the cache:
+
+`gpu_device.cpp`
+```
+PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation,
+  const char* cache_path )
+{
+  PipelineHandle handle = { pipelines.obtain_resource() };
+  if ( handle.index == k_invalid_index ) {
+      return handle;
+  }
+
+  VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
+  VkPipelineCacheCreateInfo pipeline_cache_create_info { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+...
+```
+
+The next step is to check whether the pipeline cache file already exists. If it does, we load the file data and add it to the pipeline cache creation. If the file doesn’t exist, we don’t have to make any further changes to the creation structure. We can call vkCreatePipelineCache.
+
+
+```
+VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
+VkPipelineCacheCreateInfo pipeline_cache_create_info {
+  VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+
+bool cache_exists = file_exists( cache_path );
+if ( cache_path != nullptr && cache_exists ) {
+  FileReadResult read_result = file_read_binary( cache_path, allocator );
+
+  VkPipelineCacheHeaderVersionOne* cache_header =
+    (VkPipelineCacheHeaderVersionOne*)read_result.data;
+
+  if ( cache_header->deviceID == vulkan_physical_properties.deviceID
+    && cache_header->vendorID == vulkan_physical_properties.vendorID
+    && memcmp(
+      cache_header->pipelineCacheUUID,
+      vulkan_physical_properties.pipelineCacheUUID,
+      VK_UUID_SIZE
+    ) == 0 )
+  {
+    pipeline_cache_create_info.initialDataSize = read_result.size;
+    pipeline_cache_create_info.pInitialData = read_result.data;
+  }
+  else
+  {
+    cache_exists = false;
+  }
+
+  check( vkCreatePipelineCache( vulkan_device,
+    &pipeline_cache_create_info, vulkan_allocation_callbacks, &pipeline_cache ) );
+
+  allocator->deallocate( read_result.data );
+}
+else {
+  check( vkCreatePipelineCache( vulkan_device,
+    &pipeline_cache_create_info, vulkan_allocation_callbacks, &pipeline_cache ) );
+}
+...
+```
+
+A note about the ``cache_header`` code above. The data in the cache is controlled by each vendor driver implementation. When a new driver version is released, the data format of the cache might change and become incompatible with the data previously stored in the cache file. Having a cache file, in this case, might provide no benefit as the driver cannot make use of it.
+
+For this reason, each driver has to prefix the cache data with the following header:
+
+`[Not in code]`
+```
+struct VkPipelineCacheHeaderVersionOne {
+  uint32_t headerSize;
+  VkPipelineCacheHeaderVersion headerVersion;
+  uint32_t vendorID;
+  uint32_t deviceID;
+  uint8_t pipeline
+  CacheUUID[VK_UUID_SIZE];
+}
+```
+When we load the cache data from disk, we can compare the values in the header against the values returned by the driver and GPU. If the values in the header match the ones of the device we are running on, we use the cache data as before. If they don’t, we act as if the cache didn’t exist and store a new version after the pipeline has been created.
+
+Let's get back to the code. When creating the graphics pipeline, we can use this pipeline_cache handle to create the pipeline. If we were creating the compute pipeline, we could do the same.
+
+`gpu_device.cpp`
+```
+...
+// Create full pipeline
+if ( shader_state_data->graphics_pipeline ) {
+  ...
+  check( vkCreateGraphicsPipelines( vulkan_device, pipeline_cache, 1,
+    &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline ) );
+
+  pipeline->vk_bind_point = VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS;
+} else {
+  ...
+
+  check( vkCreateComputePipelines( vulkan_device, pipeline_cache, 1,
+    &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline ) );
+
+  pipeline->vk_bind_point = VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE;
+}
+```
+
+If we have loaded a pipeline cache file, the driver will use the data to accelerate the pipeline creation. If, on the other hand, this is the first time we are creating the given pipeline, we can now query and store the pipeline cache data for later reuse:
+
+```
+if ( cache_path != nullptr && !cache_exists ) {
+  sizet cache_data_size = 0;
+  check( vkGetPipelineCacheData( vulkan_device, pipeline_cache,
+    &cache_data_size, nullptr ) );
+
+  void* cache_data = allocator->allocate( cache_data_size, 64 );
+  check( vkGetPipelineCacheData( vulkan_device, pipeline_cache,
+    &cache_data_size, cache_data ) );
+
+  file_write_binary( cache_path, cache_data, cache_data_size );
+
+  allocator->deallocate( cache_data );
+}
+
+vkDestroyPipelineCache( vulkan_device, pipeline_cache, vulkan_allocation_callbacks );
+
+return handle;
+}
+```
+
+We first call ``vkGetPipelineCacheData`` with nullptr for the data member to retrieve the cache data size. We then allocate the memory that is needed to store the cache data and call vkGetPipelineCacheData again, this time with a pointer to the memory where the cache data will be stored. Finally, we write this data to the file specified when ``GpuDevice::create_pipeline`` was called. We are now done with the pipeline cache data structure, and it can be destroyed.
+
+Finally, the shader program creation needs to be adapted to the use of pipeline cache:
+
+`renderer.cpp`
+```
+Program* Renderer::create_program( const ProgramCreation& creation ) {
+  ...
+  if ( program ) {
+    ...
+    for ( uint32_t i = 0; i < num_passes; ++i ) {
+      ProgramPass& pass = program->passes[ i ];
+
+      if ( creation.pipeline_creation.name != nullptr ) {
+          char* cache_path = pipeline_cache_path.append_use_f("%s%s.cache",
+            RAPTOR_SHADER_FOLDER, creation.pipeline_creation.name );
+
+          pass.pipeline = gpu->create_pipeline(
+            creation.pipeline_creation, cache_path );
+      } else {
+          pass.pipeline = gpu->create_pipeline( creation.pipeline_creation );
+      }
+
+      pass.descriptor_set_layout =
+        gpu->get_descriptor_set_layout( pass.pipeline, 0 );
+    }
+```
+
+## Update the main program
+
+### Main file update
+
+Because we changed the way materials are handled, we need a new main file. You will find the code on https://github.com/Gaetz/vulkan-training/blob/main/02.ModernEngine/02b.ModernEngine_ResourceManagement/source/chapter1/main.cpp .
+
+### Lighting update
+
+TODO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

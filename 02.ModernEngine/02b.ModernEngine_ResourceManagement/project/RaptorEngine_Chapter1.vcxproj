@@ -153,6 +153,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClInclude Include="..\source\external\imgui\TextEditor.h" />
     <ClInclude Include="..\source\raptor\application\application.hpp" />
     <ClInclude Include="..\source\raptor\application\game_application.hpp" />
+    <ClInclude Include="..\source\raptor\application\game_camera.hpp" />
     <ClInclude Include="..\source\raptor\application\input.hpp" />
     <ClInclude Include="..\source\raptor\application\keys.hpp" />
     <ClInclude Include="..\source\raptor\application\window.hpp" />
@@ -161,6 +162,7 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClInclude Include="..\source\raptor\foundation\bit.hpp" />
     <ClInclude Include="..\source\raptor\foundation\blob.hpp" />
     <ClInclude Include="..\source\raptor\foundation\blob_serialization.hpp" />
+    <ClInclude Include="..\source\raptor\foundation\camera.hpp" />
     <ClInclude Include="..\source\raptor\foundation\color.hpp" />
     <ClInclude Include="..\source\raptor\foundation\data_structures.hpp" />
     <ClInclude Include="..\source\raptor\foundation\file.hpp" />
@@ -201,12 +203,14 @@ copy /Y $(SolutionDir)..\binaries\assimp\windows\bin\assimp-vc142-mt.dll $(Solut
     <ClCompile Include="..\source\external\tlsf.c" />
     <ClCompile Include="..\source\raptor\application\application.cpp" />
     <ClCompile Include="..\source\raptor\application\game_application.cpp" />
+    <ClCompile Include="..\source\raptor\application\game_camera.cpp" />
     <ClCompile Include="..\source\raptor\application\input.cpp" />
     <ClCompile Include="..\source\raptor\application\keys.cpp" />
     <ClCompile Include="..\source\raptor\application\window.cpp" />
     <ClCompile Include="..\source\raptor\foundation\assert.cpp" />
     <ClCompile Include="..\source\raptor\foundation\bit.cpp" />
     <ClCompile Include="..\source\raptor\foundation\blob_serialization.cpp" />
+    <ClCompile Include="..\source\raptor\foundation\camera.cpp" />
     <ClCompile Include="..\source\raptor\foundation\color.cpp" />
     <ClCompile Include="..\source\raptor\foundation\data_structures.cpp" />
     <ClCompile Include="..\source\raptor\foundation\file.cpp" />

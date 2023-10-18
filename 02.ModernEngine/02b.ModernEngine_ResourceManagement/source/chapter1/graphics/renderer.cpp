@@ -294,9 +294,15 @@ Program* Renderer::create_program( const ProgramCreation& creation ) {
         for ( uint32_t i = 0; i < num_passes; ++i ) {
             ProgramPass& pass = program->passes[ i ];
 
-            pass.pipeline = gpu->create_pipeline(creation.pipeline_creation);
+            if ( creation.pipeline_creation.name != nullptr ) {
+                char* cache_path = pipeline_cache_path.append_use_f("%s%s.cache", RAPTOR_SHADER_FOLDER, creation.pipeline_creation.name );
 
-            pass.descriptor_set_layout = gpu->get_descriptor_set_layout(pass.pipeline, 0);
+                pass.pipeline = gpu->create_pipeline( creation.pipeline_creation, cache_path );
+            } else {
+                pass.pipeline = gpu->create_pipeline( creation.pipeline_creation );
+            }
+
+            pass.descriptor_set_layout = gpu->get_descriptor_set_layout( pass.pipeline, 0 );
         }
 
         pipeline_cache_path.shutdown();

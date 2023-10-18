@@ -1322,10 +1322,39 @@ ShaderStateHandle GpuDevice::create_shader_state( const ShaderStateCreation& cre
     return handle;
 }
 
-PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation ) {
+PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation, const char* cache_path ) {
     PipelineHandle handle = { pipelines.obtain_resource() };
     if ( handle.index == k_invalid_index ) {
         return handle;
+    }
+
+    VkPipelineCache pipeline_cache = VK_NULL_HANDLE;
+    VkPipelineCacheCreateInfo pipeline_cache_create_info { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+
+    bool cache_exists = file_exists( cache_path );
+    if ( cache_path != nullptr && cache_exists ) {
+        FileReadResult read_result = file_read_binary( cache_path, allocator );
+
+        VkPipelineCacheHeaderVersionOne* cache_header = (VkPipelineCacheHeaderVersionOne*)read_result.data;
+
+        if ( cache_header->deviceID == vulkan_physical_properties.deviceID &&
+             cache_header->vendorID == vulkan_physical_properties.vendorID &&
+             memcmp( cache_header->pipelineCacheUUID, vulkan_physical_properties.pipelineCacheUUID, VK_UUID_SIZE ) == 0 )
+        {
+            pipeline_cache_create_info.initialDataSize = read_result.size;
+            pipeline_cache_create_info.pInitialData = read_result.data;
+        }
+        else
+        {
+            cache_exists = false;
+        }
+
+        check( vkCreatePipelineCache( vulkan_device, &pipeline_cache_create_info, vulkan_allocation_callbacks, &pipeline_cache ) );
+
+        allocator->deallocate( read_result.data );
+    }
+    else {
+        check( vkCreatePipelineCache( vulkan_device, &pipeline_cache_create_info, vulkan_allocation_callbacks, &pipeline_cache ) );
     }
 
     ShaderStateHandle shader_state = create_shader_state( creation.shaders );
@@ -1545,7 +1574,7 @@ PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation ) {
 
         pipeline_info.pDynamicState = &dynamic_state;
 
-        vkCreateGraphicsPipelines( vulkan_device, VK_NULL_HANDLE, 1, &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline );
+        check( vkCreateGraphicsPipelines( vulkan_device, pipeline_cache, 1, &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline ) );
 
         pipeline->vk_bind_point = VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS;
     } else {
@@ -1554,10 +1583,24 @@ PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation ) {
         pipeline_info.stage = shader_state_data->shader_stage_info[ 0 ];
         pipeline_info.layout = pipeline_layout;
 
-        vkCreateComputePipelines( vulkan_device, VK_NULL_HANDLE, 1, &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline );
+        check( vkCreateComputePipelines( vulkan_device, pipeline_cache, 1, &pipeline_info, vulkan_allocation_callbacks, &pipeline->vk_pipeline ) );
 
         pipeline->vk_bind_point = VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_COMPUTE;
     }
+
+    if ( cache_path != nullptr && !cache_exists ) {
+        sizet cache_data_size = 0;
+        check( vkGetPipelineCacheData( vulkan_device, pipeline_cache, &cache_data_size, nullptr ) );
+
+        void* cache_data = allocator->allocate( cache_data_size, 64 );
+        check( vkGetPipelineCacheData( vulkan_device, pipeline_cache, &cache_data_size, cache_data ) );
+
+        file_write_binary( cache_path, cache_data, cache_data_size );
+
+        allocator->deallocate( cache_data );
+    }
+
+    vkDestroyPipelineCache( vulkan_device, pipeline_cache, vulkan_allocation_callbacks );
 
     return handle;
 }
