@@ -1379,9 +1379,9 @@ PipelineHandle GpuDevice::create_pipeline( const PipelineCreation& creation, con
     // Create VkPipelineLayout
     for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
         pipeline->descriptor_set_layout_handle[ l ] = create_descriptor_set_layout( shader_state_data->parse_result->sets[ l ] );
-        pipeline->descriptor_set[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
+        pipeline->descriptor_set_layout[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
 
-        vk_layouts[ l ] = pipeline->descriptor_set[ l ]->vk_descriptor_set_layout;
+        vk_layouts[ l ] = pipeline->descriptor_set_layout[ l ]->vk_descriptor_set_layout;
     }
 
     // Add bindless resource layout after other layouts.

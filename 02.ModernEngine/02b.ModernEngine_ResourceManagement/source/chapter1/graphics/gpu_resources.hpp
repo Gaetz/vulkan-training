@@ -787,7 +787,7 @@ struct Pipeline {
 
     ShaderStateHandle               shader_state;
 
-    const DesciptorSetLayout*       descriptor_set[ k_max_descriptor_set_layouts ];
+    const DesciptorSetLayout*       descriptor_set_layout[ k_max_descriptor_set_layouts ];
     DescriptorSetLayoutHandle       descriptor_set_layout_handle[ k_max_descriptor_set_layouts ];
     u32                             num_active_layouts = 0;
 

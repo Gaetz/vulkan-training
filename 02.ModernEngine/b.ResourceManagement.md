@@ -1635,16 +1635,10 @@ void GpuDevice::destroy_shader_state( ShaderStateHandle shader ) {
 }
 ```
 
-We also need to update the pipeline layout creation. By the way, we change the name of a variable and add a new one:
+We also need to update the pipeline layout creation. By the way, add a new variable:
 
 `gpu_resourses.hpp`
 ```
-struct Pipeline {
-...
-    const DesciptorSetLayout* descriptor_set[ k_max_descriptor_set_layouts ];
-...
-}; // struct PipelineVulkan
-
 struct ShaderState {
 ...
     spirv::ParseResult* parse_result;
@@ -1658,9 +1652,9 @@ u32 num_active_layouts = shader_state_data->parse_result->set_count;
 // Create VkPipelineLayout
 for ( u32 l = 0; l < shader_state_data->parse_result->set_count; ++l ) {
   pipeline->descriptor_set_layout_handle[ l ] = create_descriptor_set_layout( shader_state_data->parse_result->sets[ l ] );
-  pipeline->descriptor_set[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
+  pipeline->descriptor_set_layout[ l ] = access_descriptor_set_layout( pipeline->descriptor_set_layout_handle[ l ] );
 
-  vk_layouts[ l ] = pipeline->descriptor_set[ l ]->vk_descriptor_set_layout;
+  vk_layouts[ l ] = pipeline->descriptor_set_layout[ l ]->vk_descriptor_set_layout;
 }
 
 // Add bindless resource layout after other layouts.
