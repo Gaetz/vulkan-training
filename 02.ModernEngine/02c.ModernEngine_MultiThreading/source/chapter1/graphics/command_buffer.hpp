@@ -52,7 +52,7 @@ struct CommandBuffer {
     VkDescriptorPool                vk_descriptor_pool;
     ResourcePool                    descriptor_sets;
 
-    GpuDevice*                      gpu_device;
+    GpuDevice*                      device;
 
     VkDescriptorSet                 vk_descriptor_sets[16];
 

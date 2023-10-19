@@ -64,7 +64,6 @@ VkShaderStageFlags parse_execution_model( SpvExecutionModel model )
             return VK_SHADER_STAGE_COMPUTE_BIT;
         }
     }
-
     return 0;
 }
 

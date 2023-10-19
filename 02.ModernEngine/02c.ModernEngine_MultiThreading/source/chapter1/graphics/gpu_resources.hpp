@@ -198,10 +198,10 @@ struct RasterizationCreation {
 //
 struct BufferCreation {
 
-    VkBufferUsageFlags              type_flags = 0;
-    ResourceUsageType::Enum         usage   = ResourceUsageType::Immutable;
-    u32                             size    = 0;
-    void*                           initial_data = nullptr;
+    VkBufferUsageFlags              type_flags      = 0;
+    ResourceUsageType::Enum         usage           = ResourceUsageType::Immutable;
+    u32                             size            = 0;
+    void*                           initial_data    = nullptr;
 
     const char*                     name            = nullptr;
 
@@ -787,7 +787,7 @@ struct Pipeline {
 
     ShaderStateHandle               shader_state;
 
-    const DesciptorSetLayout*       descriptor_set[ k_max_descriptor_set_layouts ];
+    const DesciptorSetLayout*       descriptor_set_layout[ k_max_descriptor_set_layouts ];
     DescriptorSetLayoutHandle       descriptor_set_layout_handle[ k_max_descriptor_set_layouts ];
     u32                             num_active_layouts = 0;
 
@@ -827,7 +827,7 @@ struct RenderPass {
     u8                              num_render_targets = 0;
 
     const char*                     name        = nullptr;
-}; // struct RenderPass
+}; // struct RenderPassVulkan
 
 
 

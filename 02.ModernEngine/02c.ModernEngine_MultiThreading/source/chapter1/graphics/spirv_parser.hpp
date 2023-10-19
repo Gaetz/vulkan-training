@@ -12,7 +12,7 @@
 
 namespace raptor {
 
-struct StringBuffer;
+    struct StringBuffer;
 
 namespace spirv {
 
@@ -23,7 +23,7 @@ namespace spirv {
         DescriptorSetLayoutCreation sets[MAX_SET_COUNT];
     };
 
-    void                            parse_binary(const u32* data, size_t data_size, StringBuffer& name_buffer, ParseResult* parse_result);
+    void                            parse_binary( const u32* data, size_t data_size, StringBuffer& name_buffer, ParseResult* parse_result );
 
 } // namespace spirv
 } // namespace raptor

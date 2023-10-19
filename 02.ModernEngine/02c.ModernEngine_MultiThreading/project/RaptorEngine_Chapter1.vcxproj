@@ -16,7 +16,7 @@
     <ProjectGuid>{d56b9d9d-bb71-4775-b542-40fccca14bc5}</ProjectGuid>
     <RootNamespace>RaptorEngine</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>RaptorEngine_Chapter2</ProjectName>
+    <ProjectName>RaptorEngine_Chapter3</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
