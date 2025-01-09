@@ -8,7 +8,6 @@ using std::string;
 
 #include "VulkanRenderer.h"
 
-
 GLFWwindow* window = nullptr;
 VulkanRenderer vulkanRenderer;
 
