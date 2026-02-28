@@ -1,7 +1,9 @@
 #pragma once
 
 #include <SDL3/SDL.h>
+#include <memory>
 #include <string>
+#include "Engine/Engine.hpp"
 
 class Application {
 public:
@@ -16,16 +18,15 @@ public:
     void cleanup();
 
     [[nodiscard]] SDL_Window* getWindow() const { return window; }
-    [[nodiscard]] bool isRunning() const { return running; }
+    [[nodiscard]] bool        isRunning() const { return engine && engine->isRunning(); }
+    [[nodiscard]] Engine&     getEngine() const { return *engine; }
 
 private:
-    void processEvents();
-
     std::string title;
     int width;
     int height;
 
     SDL_Window* window = nullptr;
-    bool running = false;
+    std::unique_ptr<Engine> engine;
     bool initialized = false;
 };

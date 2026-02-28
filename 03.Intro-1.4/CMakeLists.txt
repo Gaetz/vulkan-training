@@ -104,6 +104,13 @@ add_executable(VulkanIntro
     BasicServices/Platform.h
     BasicServices/FileWriter.cpp
     BasicServices/FileWriter.h
+    Engine/Engine.cpp
+    Engine/Engine.hpp
+    Engine/IRenderer.hpp
+    Engine/IScene.hpp
+    Steps/Step00_Setup/Step00Renderer.cpp
+    Steps/Step00_Setup/Step00Renderer.hpp
+    Steps/Step00_Setup/Step00Scene.hpp
 )
 
 # Platform-specific sources

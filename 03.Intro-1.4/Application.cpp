@@ -40,39 +40,27 @@ bool Application::init() {
         Log::Info("  %s", extensionNames[i]);
     }
 
+    engine = std::make_unique<Engine>(window);
+
     initialized = true;
-    running = true;
     return true;
 }
 
 void Application::mainLoop() {
-    while (running) {
-        processEvents();
-    }
-}
+    Uint64 lastTime = SDL_GetTicks();
+    while (engine && engine->isRunning()) {
+        const Uint64 currentTime = SDL_GetTicks();
+        const float deltaTime = static_cast<float>(currentTime - lastTime) / 1000.0f;
+        lastTime = currentTime;
 
-void Application::processEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-            case SDL_EVENT_QUIT:
-                running = false;
-                break;
-            case SDL_EVENT_KEY_DOWN:
-                if (event.key.key == SDLK_ESCAPE) {
-                    running = false;
-                }
-                break;
-            case SDL_EVENT_WINDOW_RESIZED:
-                Log::Debug("Window resized to %dx%d", event.window.data1, event.window.data2);
-                break;
-            default:
-                break;
-        }
+        engine->processEvents();
+        engine->update(deltaTime);
+        engine->render();
     }
 }
 
 void Application::cleanup() {
+    engine.reset();
     if (window) {
         SDL_DestroyWindow(window);
         window = nullptr;
