@@ -32,6 +32,8 @@
 #include "Steps/Step03_SwapchainRecreation/Step03Scene.hpp"
 #include "Steps/Step04_VertexBuffer/Step04Renderer.hpp"
 #include "Steps/Step04_VertexBuffer/Step04Scene.hpp"
+#include "Steps/Step05_UniformBuffer/Step05Renderer.hpp"
+#include "Steps/Step05_UniformBuffer/Step05Scene.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -43,8 +45,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    app.getEngine().setRenderer(std::make_unique<Step04Renderer>());
-    app.getEngine().setScene(std::make_unique<Step04Scene>());
+    app.getEngine().setRenderer(std::make_unique<Step05Renderer>());
+    app.getEngine().setScene(std::make_unique<Step05Scene>());
     if (!app.getEngine().init()) return 1;
 
     app.mainLoop();

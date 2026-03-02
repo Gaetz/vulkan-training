@@ -125,6 +125,10 @@ add_executable(VulkanIntro
     Steps/Step04_VertexBuffer/Step04Renderer.cpp
     Steps/Step04_VertexBuffer/Step04Renderer.hpp
     Steps/Step04_VertexBuffer/Step04Scene.hpp
+    Steps/Step05_UniformBuffer/Step05Renderer.cpp
+    Steps/Step05_UniformBuffer/Step05Renderer.hpp
+    Steps/Step05_UniformBuffer/Step05Scene.cpp
+    Steps/Step05_UniformBuffer/Step05Scene.hpp
 )
 
 # Platform-specific sources
@@ -169,7 +173,17 @@ add_custom_command(
     DEPENDS ${SHADER04_SRC}
     COMMENT "Compiling 04.VertexBuffer.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV})
+set(SHADER05_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/05.UniformBuffer.slang")
+set(SHADER05_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/05.UniformBuffer.spv")
+add_custom_command(
+    OUTPUT  ${SHADER05_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER05_SRC} -o ${SHADER05_SPV}
+    DEPENDS ${SHADER05_SRC}
+    COMMENT "Compiling 05.UniformBuffer.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Set rpath for macOS to find Vulkan and SDL3 libraries at runtime
