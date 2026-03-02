@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include "../../Engine/IRenderer.hpp"
+#include "../../Engine/Renderer/IRenderer.hpp"
 
 // Step 00 — Setup
 // Covers the Vulkan tutorial sections:

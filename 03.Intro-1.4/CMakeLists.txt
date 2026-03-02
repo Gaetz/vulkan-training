@@ -106,7 +106,9 @@ add_executable(VulkanIntro
     BasicServices/FileWriter.h
     Engine/Engine.cpp
     Engine/Engine.hpp
-    Engine/IRenderer.hpp
+    Engine/Renderer/IRenderer.hpp
+    Engine/Renderer/Buffer.hpp
+    Engine/Renderer/Buffer.cpp
     Engine/IScene.hpp
     Steps/Step00_Setup/Step00Renderer.cpp
     Steps/Step00_Setup/Step00Renderer.hpp
@@ -120,6 +122,9 @@ add_executable(VulkanIntro
     Steps/Step03_SwapchainRecreation/Step03Renderer.cpp
     Steps/Step03_SwapchainRecreation/Step03Renderer.hpp
     Steps/Step03_SwapchainRecreation/Step03Scene.hpp
+    Steps/Step04_VertexBuffer/Step04Renderer.cpp
+    Steps/Step04_VertexBuffer/Step04Renderer.hpp
+    Steps/Step04_VertexBuffer/Step04Scene.hpp
 )
 
 # Platform-specific sources
@@ -154,7 +159,17 @@ add_custom_command(
     DEPENDS ${SHADER_SRC}
     COMMENT "Compiling 01.BasicPipeline.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV})
+set(SHADER04_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/04.VertexBuffer.slang")
+set(SHADER04_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/04.VertexBuffer.spv")
+add_custom_command(
+    OUTPUT  ${SHADER04_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER04_SRC} -o ${SHADER04_SPV}
+    DEPENDS ${SHADER04_SRC}
+    COMMENT "Compiling 04.VertexBuffer.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Set rpath for macOS to find Vulkan and SDL3 libraries at runtime

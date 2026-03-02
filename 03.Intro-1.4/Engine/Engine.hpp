@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <memory>
-#include "IRenderer.hpp"
+#include "Renderer/IRenderer.hpp"
 #include "IScene.hpp"
 
 class Engine {

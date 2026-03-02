@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "../../Engine/IRenderer.hpp"
+#include "../../Engine/Renderer/IRenderer.hpp"
 
 // Step 01 — Basic Pipeline
 class Step01Renderer : public IRenderer {

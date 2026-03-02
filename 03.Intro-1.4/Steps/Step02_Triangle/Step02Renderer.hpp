@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "../../Engine/IRenderer.hpp"
+#include "../../Engine/Renderer/IRenderer.hpp"
 
 // Step 02 — Triangle (command buffers + rendering + frames in flight)
 class Step02Renderer : public IRenderer {
