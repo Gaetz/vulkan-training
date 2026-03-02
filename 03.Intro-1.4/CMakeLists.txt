@@ -111,6 +111,9 @@ add_executable(VulkanIntro
     Steps/Step00_Setup/Step00Renderer.cpp
     Steps/Step00_Setup/Step00Renderer.hpp
     Steps/Step00_Setup/Step00Scene.hpp
+    Steps/Step01_BasicPipeline/Step01Renderer.cpp
+    Steps/Step01_BasicPipeline/Step01Renderer.hpp
+    Steps/Step01_BasicPipeline/Step01Scene.hpp
 )
 
 # Platform-specific sources
@@ -132,6 +135,21 @@ target_link_libraries(VulkanIntro
 
 # stb is header-only, add include path
 target_include_directories(VulkanIntro PRIVATE ${stb_SOURCE_DIR})
+
+# Shader compilation — Slang → SPIR-V
+find_program(SLANGC slangc REQUIRED)   # /usr/local/bin/slangc on this system
+set(SHADER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/01.BasicPipeline.slang")
+set(SHADER_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/01.BasicPipeline.spv")
+add_custom_command(
+    OUTPUT  ${SHADER_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER_SRC} -o ${SHADER_SPV}
+    DEPENDS ${SHADER_SRC}
+    COMMENT "Compiling 01.BasicPipeline.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV})
+add_dependencies(VulkanIntro Shaders)
 
 # Set rpath for macOS to find Vulkan and SDL3 libraries at runtime
 if(APPLE)
