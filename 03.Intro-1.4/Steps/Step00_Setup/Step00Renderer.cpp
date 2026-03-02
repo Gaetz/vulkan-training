@@ -143,6 +143,11 @@ bool Step00Renderer::initVulkan(SDL_Window* window) {
     auto physDeviceResult = vkb::PhysicalDeviceSelector{vkbInst}
         .set_surface(rawSurface)
         .set_minimum_version(1, 4)
+        // Core Vulkan 1.3 features required for later rendering steps.
+        .set_required_features_13(VkPhysicalDeviceVulkan13Features{
+            .synchronization2  = VK_TRUE,
+            .dynamicRendering  = VK_TRUE,
+        })
         // Only require graphics + present. Transfer detection happens after
         // device creation to support both discrete GPUs (dedicated transfer
         // family) and Apple M1 via MoltenVK (no dedicated family).
@@ -181,19 +186,18 @@ bool Step00Renderer::initVulkan(SDL_Window* window) {
     // -------------------------------------------------------------------------
     graphicsQueueFamily = vkbDev.get_queue_index(vkb::QueueType::graphics).value();
     presentQueueFamily  = vkbDev.get_queue_index(vkb::QueueType::present).value();
-    graphicsQueue = *device.getQueue(graphicsQueueFamily, 0);
-    presentQueue  = *device.getQueue(presentQueueFamily,  0);
+    graphicsQueue = device.getQueue(graphicsQueueFamily, 0);
+    presentQueue  = device.getQueue(presentQueueFamily,  0);
 
     auto tqIdx = vkbDev.get_queue_index(vkb::QueueType::transfer);
     if (tqIdx) {
         transferQueueFamily       = tqIdx.value();
-        transferQueue             = *device.getQueue(transferQueueFamily, 0);
         hasDedicatedTransferQueue = (transferQueueFamily != graphicsQueueFamily);
     } else {
-        transferQueue             = graphicsQueue;
         transferQueueFamily       = graphicsQueueFamily;
         hasDedicatedTransferQueue = false;
     }
+    transferQueue = device.getQueue(transferQueueFamily, 0);
 
     Log::Info("Queues — graphics %u, present %u, transfer %u%s.",
               graphicsQueueFamily, presentQueueFamily, transferQueueFamily,
@@ -224,7 +228,7 @@ bool Step00Renderer::initSwapchain(SDL_Window* window) {
         .set_desired_format({VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
         .set_desired_extent(static_cast<uint32_t>(fbWidth),
                             static_cast<uint32_t>(fbHeight))
-        .set_desired_min_image_count(vkb::SwapchainBuilder::DOUBLE_BUFFERING)
+        // image count: default (0) → vkb uses minImageCount + 1
         .set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
         .build();
 

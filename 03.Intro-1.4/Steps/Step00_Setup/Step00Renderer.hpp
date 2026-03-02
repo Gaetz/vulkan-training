@@ -49,10 +49,10 @@ private:
     vk::raii::SwapchainKHR           swapchain{nullptr};
     std::vector<vk::raii::ImageView> imageViews;
 
-    // --- Queues (not owned by the app, no RAII needed) ---
-    vk::Queue graphicsQueue;
-    vk::Queue presentQueue;
-    vk::Queue transferQueue;
+    // --- Queues (owned by the device, destroyed with it — no explicit cleanup needed) ---
+    vk::raii::Queue graphicsQueue{nullptr};
+    vk::raii::Queue presentQueue{nullptr};
+    vk::raii::Queue transferQueue{nullptr};
     uint32_t  graphicsQueueFamily       = 0;
     uint32_t  presentQueueFamily        = 0;
     uint32_t  transferQueueFamily       = 0;
