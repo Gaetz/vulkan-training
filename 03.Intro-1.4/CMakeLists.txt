@@ -114,6 +114,9 @@ add_executable(VulkanIntro
     Steps/Step01_BasicPipeline/Step01Renderer.cpp
     Steps/Step01_BasicPipeline/Step01Renderer.hpp
     Steps/Step01_BasicPipeline/Step01Scene.hpp
+    Steps/Step02_Triangle/Step02Renderer.cpp
+    Steps/Step02_Triangle/Step02Renderer.hpp
+    Steps/Step02_Triangle/Step02Scene.hpp
 )
 
 # Platform-specific sources

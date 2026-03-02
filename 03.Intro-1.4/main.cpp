@@ -26,6 +26,8 @@
 #include "Steps/Step00_Setup/Step00Scene.hpp"
 #include "Steps/Step01_BasicPipeline/Step01Renderer.hpp"
 #include "Steps/Step01_BasicPipeline/Step01Scene.hpp"
+#include "Steps/Step02_Triangle/Step02Renderer.hpp"
+#include "Steps/Step02_Triangle/Step02Scene.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -37,8 +39,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    app.getEngine().setRenderer(std::make_unique<Step01Renderer>());
-    app.getEngine().setScene(std::make_unique<Step01Scene>());
+    app.getEngine().setRenderer(std::make_unique<Step02Renderer>());
+    app.getEngine().setScene(std::make_unique<Step02Scene>());
     if (!app.getEngine().init()) return 1;
 
     app.mainLoop();

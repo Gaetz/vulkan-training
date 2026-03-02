@@ -1,8 +1,6 @@
-#include "Step01Renderer.hpp"
+#include "Step02Renderer.hpp"
 #include "../../BasicServices/Log.h"
 
-// vk-bootstrap is only used locally for creation and selection; no vkb type
-// is stored as a member — all Vulkan handles are owned by vk::raii::* wrappers.
 #include <VkBootstrap.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -35,42 +33,42 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(
 // =============================================================================
 //  Destructor
 //  VMA must be destroyed before the RAII device destructor fires.
-//  The destructor body runs before member destructors, so this is safe.
 // =============================================================================
-Step01Renderer::~Step01Renderer() {
+Step02Renderer::~Step02Renderer() {
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);
         allocator = VK_NULL_HANDLE;
     }
-    // imageViews, swapchain, device, surface, debugMessenger, instance, context
-    // are all destroyed automatically in reverse declaration order.
 }
 
 // =============================================================================
 //  IRenderer::init
 // =============================================================================
-bool Step01Renderer::init(SDL_Window* window) {
-    if (!initVulkan(window))    return false;
-    if (!initSwapchain(window)) return false;
-    if (!initImageViews())      return false;
-    if (!initAllocator())       return false;
-    if (!initPipeline())        return false;
+bool Step02Renderer::init(SDL_Window* window) {
+    if (!initVulkan(window))       return false;
+    if (!initSwapchain(window))    return false;
+    if (!initImageViews())         return false;
+    if (!initAllocator())          return false;
+    if (!initPipeline())           return false;
+    if (!initCommandBuffers())     return false;
+    if (!initSyncObjects())        return false;
 
-    Log::Info("Renderer initialized — instance, device, swapchain and image views ready.");
+    Log::Info("Step02Renderer initialized — triangle rendering ready.");
     return true;
 }
 
 // =============================================================================
-//  IRenderer::render  (empty at this stage)
-// =============================================================================
-void Step01Renderer::render(IScene& /*scene*/) {}
-
-// =============================================================================
 //  IRenderer::cleanup
-//  Clears RAII handles in reverse creation order. VMA must come before device.
-//  After clear(), every handle is null so the destructor is a no-op.
 // =============================================================================
-void Step01Renderer::cleanup() {
+void Step02Renderer::cleanup() {
+    device.waitIdle();
+
+    inFlightFences.clear();
+    renderFinishedSemaphores.clear();
+    imageAvailableSemaphores.clear();
+    commandBuffers.clear();
+    commandPool.clear();
+
     graphicsPipeline.clear();
     pipelineLayout.clear();
 
@@ -87,22 +85,209 @@ void Step01Renderer::cleanup() {
     debugMessenger.clear();
     instance.clear();
 
-    Log::Info("Renderer cleaned up.");
+    Log::Info("Step02Renderer cleaned up.");
+}
+
+// =============================================================================
+//  IRenderer::render
+// =============================================================================
+void Step02Renderer::render(IScene& /*scene*/) {
+    // 1. Wait for the GPU to finish with this frame slot
+    auto waitResult = device.waitForFences(*inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    if (waitResult != vk::Result::eSuccess) return;
+
+    // 2. Acquire next swapchain image
+    auto [acqResult, imageIndex] = swapchain.acquireNextImage(
+        UINT64_MAX, *imageAvailableSemaphores[currentFrame]);
+    if (acqResult != vk::Result::eSuccess && acqResult != vk::Result::eSuboptimalKHR)
+        return;
+
+    // 3. Reset fence and command buffer for this frame
+    device.resetFences(*inFlightFences[currentFrame]);
+    commandBuffers[currentFrame].reset();
+
+    // 4. Record draw commands
+    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+
+    // 5. Submit to the graphics queue
+    vk::Semaphore          waitSem   = *imageAvailableSemaphores[currentFrame];
+    vk::Semaphore          signalSem = *renderFinishedSemaphores[imageIndex]; // indexed by image, not frame slot
+    vk::CommandBuffer      cmd       = *commandBuffers[currentFrame];
+    vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+    graphicsQueue.submit(vk::SubmitInfo{
+        .waitSemaphoreCount   = 1, .pWaitSemaphores   = &waitSem,
+        .pWaitDstStageMask    = &waitStage,
+        .commandBufferCount   = 1, .pCommandBuffers   = &cmd,
+        .signalSemaphoreCount = 1, .pSignalSemaphores = &signalSem,
+    }, *inFlightFences[currentFrame]);
+
+    // 6. Present
+    vk::SwapchainKHR sc = *swapchain;
+    try {
+        auto presentResult = presentQueue.presentKHR(vk::PresentInfoKHR{
+            .waitSemaphoreCount = 1, .pWaitSemaphores = &signalSem,
+            .swapchainCount     = 1, .pSwapchains     = &sc,
+            .pImageIndices      = &imageIndex,
+        });
+        (void)presentResult; // eSuccess or eSuboptimalKHR — resize handled in a later step
+    } catch (vk::OutOfDateKHRError&) {
+        // Swapchain out of date (e.g. window resized) — handled in a later step
+    }
+
+    // 7. Advance to next frame slot
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+// =============================================================================
+//  recordCommandBuffer — records one frame's draw commands
+// =============================================================================
+void Step02Renderer::recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex) {
+    cmd.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+
+    // --- Transition: UNDEFINED → eColorAttachmentOptimal ---
+    vk::ImageMemoryBarrier2 toAttachment{
+        .srcStageMask  = vk::PipelineStageFlagBits2::eTopOfPipe,
+        .srcAccessMask = vk::AccessFlagBits2::eNone,
+        .dstStageMask  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .dstAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .oldLayout     = vk::ImageLayout::eUndefined,
+        .newLayout     = vk::ImageLayout::eColorAttachmentOptimal,
+        .image         = swapchainImages[imageIndex],
+        .subresourceRange = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        },
+    };
+    cmd.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers    = &toAttachment,
+    });
+
+    // --- Begin dynamic rendering ---
+    vk::RenderingAttachmentInfo colorAttachment{
+        .imageView   = *imageViews[imageIndex],
+        .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+        .loadOp      = vk::AttachmentLoadOp::eClear,
+        .storeOp     = vk::AttachmentStoreOp::eStore,
+        .clearValue  = vk::ClearValue{vk::ClearColorValue{
+            std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}}},
+    };
+    cmd.beginRendering(vk::RenderingInfo{
+        .renderArea           = vk::Rect2D{{0, 0}, swapchainExtent},
+        .layerCount           = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments    = &colorAttachment,
+    });
+
+    // --- Draw ---
+    cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+
+    vk::Viewport viewport{
+        .x        = 0.0f,
+        .y        = 0.0f,
+        .width    = static_cast<float>(swapchainExtent.width),
+        .height   = static_cast<float>(swapchainExtent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+    vk::Rect2D scissor{.offset = {0, 0}, .extent = swapchainExtent};
+    cmd.setViewport(0, viewport);
+    cmd.setScissor(0, scissor);
+
+    cmd.draw(3, 1, 0, 0);
+
+    cmd.endRendering();
+
+    // --- Transition: eColorAttachmentOptimal → ePresentSrcKHR ---
+    vk::ImageMemoryBarrier2 toPresent{
+        .srcStageMask  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        .srcAccessMask = vk::AccessFlagBits2::eColorAttachmentWrite,
+        .dstStageMask  = vk::PipelineStageFlagBits2::eBottomOfPipe,
+        .dstAccessMask = vk::AccessFlagBits2::eNone,
+        .oldLayout     = vk::ImageLayout::eColorAttachmentOptimal,
+        .newLayout     = vk::ImageLayout::ePresentSrcKHR,
+        .image         = swapchainImages[imageIndex],
+        .subresourceRange = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1,
+        },
+    };
+    cmd.pipelineBarrier2(vk::DependencyInfo{
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers    = &toPresent,
+    });
+
+    cmd.end();
+}
+
+// =============================================================================
+//  initCommandBuffers — command pool + one buffer per frame in flight
+// =============================================================================
+bool Step02Renderer::initCommandBuffers() {
+    commandPool = device.createCommandPool(vk::CommandPoolCreateInfo{
+        .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsQueueFamily,
+    });
+
+    commandBuffers = device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+        .commandPool        = *commandPool,
+        .level              = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = MAX_FRAMES_IN_FLIGHT,
+    });
+
+    Log::Info("Command pool and %u command buffers created.", MAX_FRAMES_IN_FLIGHT);
+    return true;
+}
+
+// =============================================================================
+//  initSyncObjects
+//
+//  imageAvailableSemaphores + inFlightFences: one per frame slot.
+//  renderFinishedSemaphores: one per SWAPCHAIN IMAGE (not per frame slot).
+//
+//  Why per-image for renderFinished?
+//  waitForFences() only guarantees that rendering is done, not that the
+//  presentation engine has consumed the semaphore it was waiting on.
+//  The spec guarantees: when acquireNextImage returns imageIndex N, the
+//  previous presentation of image N is complete — which includes consuming
+//  renderFinishedSemaphores[N]. So indexing by image makes reuse safe.
+// =============================================================================
+bool Step02Renderer::initSyncObjects() {
+    // Per-frame-slot: imageAvailable + fence
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        imageAvailableSemaphores.push_back(device.createSemaphore({}));
+        inFlightFences.push_back(device.createFence(vk::FenceCreateInfo{
+            // Pre-signaled so the first frame doesn't wait forever
+            .flags = vk::FenceCreateFlagBits::eSignaled,
+        }));
+    }
+
+    // Per-swapchain-image: renderFinished
+    for (size_t i = 0; i < swapchainImages.size(); ++i) {
+        renderFinishedSemaphores.push_back(device.createSemaphore({}));
+    }
+
+    Log::Info("Sync objects created (%u frame slots, %zu render-finished semaphores).",
+              MAX_FRAMES_IN_FLIGHT, swapchainImages.size());
+    return true;
 }
 
 // =============================================================================
 //  initVulkan — instance, surface, physical device, logical device, queues
 // =============================================================================
-bool Step01Renderer::initVulkan(SDL_Window* window) {
+bool Step02Renderer::initVulkan(SDL_Window* window) {
 
-    // -------------------------------------------------------------------------
-    // 1. Instance (via vk-bootstrap) → wrapped in vk::raii::Instance
-    //    context provides the Vulkan loader (vkGetInstanceProcAddr).
-    //    The raii wrapper calls vkDestroyInstance in its destructor.
-    //    We do NOT call vkb::destroy_instance — that would double-free.
-    // -------------------------------------------------------------------------
     auto instanceResult = vkb::InstanceBuilder{}
-        .set_app_name("Vulkan Tutorial — Step 00")
+        .set_app_name("Vulkan Tutorial — Step 02")
         .set_engine_name("No Engine")
         .require_api_version(1, 4, 0)
 #ifndef NDEBUG
@@ -122,17 +307,12 @@ bool Step01Renderer::initVulkan(SDL_Window* window) {
     Log::Info("Vulkan instance created (API 1.4).");
 
 #ifndef NDEBUG
-    // Wrap the debug messenger created by vk-bootstrap.
     if (vkbInst.debug_messenger != VK_NULL_HANDLE) {
         debugMessenger = vk::raii::DebugUtilsMessengerEXT{instance,
                                                           vkbInst.debug_messenger};
     }
 #endif
 
-    // -------------------------------------------------------------------------
-    // 2. Window surface (SDL) → wrapped in vk::raii::SurfaceKHR
-    //    *instance dereferences raii to vk::Instance, then to VkInstance.
-    // -------------------------------------------------------------------------
     VkSurfaceKHR rawSurface = VK_NULL_HANDLE;
     if (!SDL_Vulkan_CreateSurface(window,
                                   static_cast<VkInstance>(*instance),
@@ -143,26 +323,19 @@ bool Step01Renderer::initVulkan(SDL_Window* window) {
     surface = vk::raii::SurfaceKHR{instance, rawSurface};
     Log::Info("Window surface created.");
 
-    // -------------------------------------------------------------------------
-    // 3. Physical device (vk-bootstrap selection) → vk::raii::PhysicalDevice
-    //    PhysicalDevice has no destructor (physical devices are not destroyed).
-    // -------------------------------------------------------------------------
     auto physDeviceResult = vkb::PhysicalDeviceSelector{vkbInst}
         .set_surface(rawSurface)
         .set_minimum_version(1, 4)
-        // slangc emits OpCapability DrawParameters (BaseVertex) when translating
-        // SV_VertexID to HLSL semantics. Mandatory on all Vulkan 1.1+ devices.
+        // slangc emits BaseVertex (DrawParameters capability) when translating
+        // SV_VertexID to match HLSL semantics (VertexIndex - BaseVertex).
+        // shaderDrawParameters is mandatory on all Vulkan 1.1+ implementations.
         .set_required_features_11(VkPhysicalDeviceVulkan11Features{
             .shaderDrawParameters = VK_TRUE,
         })
-        // Core Vulkan 1.3 features required for later rendering steps.
         .set_required_features_13(VkPhysicalDeviceVulkan13Features{
             .synchronization2  = VK_TRUE,
             .dynamicRendering  = VK_TRUE,
         })
-        // Only require graphics + present. Transfer detection happens after
-        // device creation to support both discrete GPUs (dedicated transfer
-        // family) and Apple M1 via MoltenVK (no dedicated family).
         .select();
 
     if (!physDeviceResult) {
@@ -175,9 +348,6 @@ bool Step01Renderer::initVulkan(SDL_Window* window) {
     physDevice = vk::raii::PhysicalDevice{instance, vkbPhysDev.physical_device};
     Log::Info("Physical device: %s", physDevice.getProperties().deviceName.data());
 
-    // -------------------------------------------------------------------------
-    // 4. Logical device (vk-bootstrap) → vk::raii::Device
-    // -------------------------------------------------------------------------
     auto deviceResult = vkb::DeviceBuilder{vkbPhysDev}.build();
 
     if (!deviceResult) {
@@ -190,12 +360,6 @@ bool Step01Renderer::initVulkan(SDL_Window* window) {
     device = vk::raii::Device{physDevice, vkbDev.device};
     Log::Info("Logical device created.");
 
-    // -------------------------------------------------------------------------
-    // 5. Queues — get family indices from vkb while vkbDev is in scope,
-    //    then retrieve queue handles from the raii device.
-    //    device.getQueue() returns vk::raii::Queue; we dereference (*) to
-    //    extract a plain vk::Queue (queues are not destroyed explicitly).
-    // -------------------------------------------------------------------------
     graphicsQueueFamily = vkbDev.get_queue_index(vkb::QueueType::graphics).value();
     presentQueueFamily  = vkbDev.get_queue_index(vkb::QueueType::present).value();
     graphicsQueue = device.getQueue(graphicsQueueFamily, 0);
@@ -218,15 +382,9 @@ bool Step01Renderer::initVulkan(SDL_Window* window) {
 }
 
 // =============================================================================
-//  initSwapchain — VkSwapchainKHR + VkImage handles
-//
-//  Raw handles and queue indices are passed to SwapchainBuilder so it can set
-//  up the correct image sharing mode (EXCLUSIVE vs CONCURRENT).
-//  The swapchain is wrapped in vk::raii::SwapchainKHR.
-//  Images are retrieved via swapchain.getImages() — they stay as vk::Image
-//  (not raii) since they are owned and freed by the swapchain itself.
+//  initSwapchain
 // =============================================================================
-bool Step01Renderer::initSwapchain(SDL_Window* window) {
+bool Step02Renderer::initSwapchain(SDL_Window* window) {
     int fbWidth = 0, fbHeight = 0;
     SDL_GetWindowSizeInPixels(window, &fbWidth, &fbHeight);
 
@@ -240,7 +398,6 @@ bool Step01Renderer::initSwapchain(SDL_Window* window) {
         .set_desired_format({VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
         .set_desired_extent(static_cast<uint32_t>(fbWidth),
                             static_cast<uint32_t>(fbHeight))
-        // image count: default (0) → vkb uses minImageCount + 1
         .set_image_usage_flags(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
         .build();
 
@@ -253,8 +410,6 @@ bool Step01Renderer::initSwapchain(SDL_Window* window) {
     swapchain       = vk::raii::SwapchainKHR{device, vkbSwap.swapchain};
     swapchainFormat = static_cast<vk::Format>(vkbSwap.image_format);
     swapchainExtent = {vkbSwap.extent.width, vkbSwap.extent.height};
-
-    // swapchain.getImages() queries vkGetSwapchainImagesKHR via the raii wrapper.
     swapchainImages = swapchain.getImages();
 
     Log::Info("Swapchain created — %ux%u, format %s, %zu images.",
@@ -265,13 +420,9 @@ bool Step01Renderer::initSwapchain(SDL_Window* window) {
 }
 
 // =============================================================================
-//  initImageViews — one vk::raii::ImageView per swapchain image
-//
-//  device.createImageView() returns a vk::raii::ImageView directly — no
-//  manual vkDestroyImageView needed. The struct uses the designated-initializer
-//  style (VULKAN_HPP_NO_STRUCT_CONSTRUCTORS) matching the tutorial exactly.
+//  initImageViews
 // =============================================================================
-bool Step01Renderer::initImageViews() {
+bool Step02Renderer::initImageViews() {
     for (vk::Image image : swapchainImages) {
         vk::ImageViewCreateInfo viewInfo{
             .image    = image,
@@ -299,12 +450,9 @@ bool Step01Renderer::initImageViews() {
 }
 
 // =============================================================================
-//  initAllocator — VMA (Vulkan Memory Allocator)
-//
-//  *instance / *device / *physDevice dereference the raii wrappers to their
-//  underlying vk:: types, which implicitly convert to VkXxx for VMA.
+//  initAllocator — VMA
 // =============================================================================
-bool Step01Renderer::initAllocator() {
+bool Step02Renderer::initAllocator() {
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice   = *physDevice;
     allocatorInfo.device           = *device;
@@ -322,12 +470,9 @@ bool Step01Renderer::initAllocator() {
 }
 
 // =============================================================================
-//  loadShaderModule — reads a SPIR-V binary and wraps it in a ShaderModule
-//
-//  The file is opened in binary mode with seekg(0, end) to get the byte size.
-//  The buffer is sized in uint32_t words (SPIR-V is 4-byte aligned).
+//  loadShaderModule
 // =============================================================================
-vk::raii::ShaderModule Step01Renderer::loadShaderModule(const std::string& path) {
+vk::raii::ShaderModule Step02Renderer::loadShaderModule(const std::string& path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
         Log::Error("Failed to open shader file: %s", path.c_str());
@@ -346,19 +491,12 @@ vk::raii::ShaderModule Step01Renderer::loadShaderModule(const std::string& path)
 }
 
 // =============================================================================
-//  initPipeline — creates the graphics pipeline using dynamic rendering
-//
-//  No VkRenderPass is needed: vk::PipelineRenderingCreateInfo is chained via
-//  pNext (Vulkan 1.3 dynamic rendering, already enabled in initVulkan).
-//  Vertices are hardcoded in the shader — vertex input state is empty.
-//  Viewport and scissor are dynamic states, set at draw time.
+//  initPipeline — same pipeline as Step01, reuses 01.BasicPipeline.spv
 // =============================================================================
-bool Step01Renderer::initPipeline() {
-    // 1. Load shader (both stages share the same SPIR-V module)
+bool Step02Renderer::initPipeline() {
     auto shaderModule = loadShaderModule("assets/shaders/01.BasicPipeline.spv");
     if (!*shaderModule) return false;
 
-    // 2. Shader stages
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
         {
             .stage  = vk::ShaderStageFlagBits::eVertex,
@@ -372,16 +510,13 @@ bool Step01Renderer::initPipeline() {
         },
     }};
 
-    // 3. Vertex input — empty, vertices are hardcoded in the shader
     vk::PipelineVertexInputStateCreateInfo vertexInput{};
 
-    // 4. Input assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
         .topology               = vk::PrimitiveTopology::eTriangleList,
         .primitiveRestartEnable = VK_FALSE,
     };
 
-    // 5. Viewport + scissor as dynamic states (set at draw time)
     std::array<vk::DynamicState, 2> dynamicStates = {
         vk::DynamicState::eViewport,
         vk::DynamicState::eScissor,
@@ -395,7 +530,6 @@ bool Step01Renderer::initPipeline() {
         .scissorCount  = 1,
     };
 
-    // 6. Rasterizer
     vk::PipelineRasterizationStateCreateInfo rasterizer{
         .depthClampEnable        = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
@@ -406,13 +540,11 @@ bool Step01Renderer::initPipeline() {
         .lineWidth               = 1.0f,
     };
 
-    // 7. Multisampling — disabled
     vk::PipelineMultisampleStateCreateInfo multisampling{
         .rasterizationSamples = vk::SampleCountFlagBits::e1,
         .sampleShadingEnable  = VK_FALSE,
     };
 
-    // 8. Color blend attachment — blending off, full RGBA write mask
     vk::PipelineColorBlendAttachmentState colorBlendAttachment{
         .blendEnable    = VK_FALSE,
         .colorWriteMask = vk::ColorComponentFlagBits::eR |
@@ -421,24 +553,19 @@ bool Step01Renderer::initPipeline() {
                           vk::ColorComponentFlagBits::eA,
     };
 
-    // 9. Color blending
     vk::PipelineColorBlendStateCreateInfo colorBlending{
         .logicOpEnable   = VK_FALSE,
         .attachmentCount = 1,
         .pAttachments    = &colorBlendAttachment,
     };
 
-    // 10. Pipeline layout (no descriptors, no push constants)
     pipelineLayout = device.createPipelineLayout(vk::PipelineLayoutCreateInfo{});
 
-    // 11. Dynamic rendering info — tells the pipeline which attachment formats
-    //     to expect without requiring a VkRenderPass object.
     vk::PipelineRenderingCreateInfo renderingInfo{
         .colorAttachmentCount    = 1,
         .pColorAttachmentFormats = &swapchainFormat,
     };
 
-    // 12–13. Assemble and create the pipeline
     vk::GraphicsPipelineCreateInfo pipelineInfo{
         .pNext               = &renderingInfo,
         .stageCount          = static_cast<uint32_t>(shaderStages.size()),
@@ -455,7 +582,6 @@ bool Step01Renderer::initPipeline() {
 
     graphicsPipeline = device.createGraphicsPipeline(nullptr, pipelineInfo);
 
-    // 14. shaderModule destroyed here (RAII, end of scope)
     Log::Info("Graphics pipeline created.");
     return true;
 }
