@@ -56,6 +56,10 @@ void Engine::processEvents() {
                 Log::Debug("Window resized to %dx%d",
                            event.window.data1, event.window.data2);
                 break;
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                // Framebuffer pixel size changed (covers Retina/HiDPI too).
+                if (renderer) renderer->onWindowResized();
+                break;
             default:
                 break;
         }

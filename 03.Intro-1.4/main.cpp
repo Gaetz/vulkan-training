@@ -28,6 +28,8 @@
 #include "Steps/Step01_BasicPipeline/Step01Scene.hpp"
 #include "Steps/Step02_Triangle/Step02Renderer.hpp"
 #include "Steps/Step02_Triangle/Step02Scene.hpp"
+#include "Steps/Step03_SwapchainRecreation/Step03Renderer.hpp"
+#include "Steps/Step03_SwapchainRecreation/Step03Scene.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -39,8 +41,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    app.getEngine().setRenderer(std::make_unique<Step02Renderer>());
-    app.getEngine().setScene(std::make_unique<Step02Scene>());
+    app.getEngine().setRenderer(std::make_unique<Step03Renderer>());
+    app.getEngine().setScene(std::make_unique<Step03Scene>());
     if (!app.getEngine().init()) return 1;
 
     app.mainLoop();
