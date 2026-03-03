@@ -111,6 +111,10 @@ add_executable(VulkanIntro
     Engine/Renderer/Buffer.cpp
     Engine/Renderer/Image.hpp
     Engine/Renderer/Image.cpp
+    Engine/Renderer/Model.hpp
+    Engine/Renderer/Model.cpp
+    Engine/Renderer/ModelLoader.hpp
+    Engine/Renderer/ModelLoader.cpp
     Engine/Renderer/Texture.hpp
     Engine/Renderer/Texture.cpp
     Engine/Renderer/TextureLoader.hpp
@@ -147,6 +151,10 @@ add_executable(VulkanIntro
     Steps/Step07_Depth/Step07Renderer.hpp
     Steps/Step07_Depth/Step07Scene.cpp
     Steps/Step07_Depth/Step07Scene.hpp
+    Steps/Step08_Modele3D/Step08Renderer.cpp
+    Steps/Step08_Modele3D/Step08Renderer.hpp
+    Steps/Step08_Modele3D/Step08Scene.cpp
+    Steps/Step08_Modele3D/Step08Scene.hpp
 )
 
 # Platform-specific sources
@@ -221,15 +229,31 @@ add_custom_command(
     DEPENDS ${SHADER07_SRC}
     COMMENT "Compiling 07.Depth.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV})
+set(SHADER08_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/08.Modele3D.slang")
+set(SHADER08_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/08.Modele3D.spv")
+add_custom_command(
+    OUTPUT  ${SHADER08_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER08_SRC} -o ${SHADER08_SPV}
+    DEPENDS ${SHADER08_SRC}
+    COMMENT "Compiling 08.Modele3D.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV})
 add_dependencies(VulkanIntro Shaders)
 
-# Copy textures from source to build directory on every build
+# Copy assets from source to build directory on every build
 add_custom_command(TARGET VulkanIntro POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/textures"
             "${CMAKE_CURRENT_BINARY_DIR}/assets/textures"
     COMMENT "Copying assets/textures → build directory"
+)
+add_custom_command(TARGET VulkanIntro POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/models"
+            "${CMAKE_CURRENT_BINARY_DIR}/assets/models"
+    COMMENT "Copying assets/models → build directory"
 )
 
 # Set rpath for macOS to find Vulkan and SDL3 libraries at runtime

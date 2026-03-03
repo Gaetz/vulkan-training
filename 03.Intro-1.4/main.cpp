@@ -38,6 +38,8 @@
 #include "Steps/Step06_Textures/Step06Scene.hpp"
 #include "Steps/Step07_Depth/Step07Renderer.hpp"
 #include "Steps/Step07_Depth/Step07Scene.hpp"
+#include "Steps/Step08_Modele3D/Step08Renderer.hpp"
+#include "Steps/Step08_Modele3D/Step08Scene.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -49,8 +51,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    app.getEngine().setRenderer(std::make_unique<Step07Renderer>());
-    app.getEngine().setScene(std::make_unique<Step07Scene>());
+    app.getEngine().setRenderer(std::make_unique<Step08Renderer>());
+    app.getEngine().setScene(std::make_unique<Step08Scene>());
     if (!app.getEngine().init()) return 1;
 
     app.mainLoop();
