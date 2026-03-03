@@ -143,6 +143,10 @@ add_executable(VulkanIntro
     Steps/Step06_Textures/Step06Renderer.hpp
     Steps/Step06_Textures/Step06Scene.cpp
     Steps/Step06_Textures/Step06Scene.hpp
+    Steps/Step07_Depth/Step07Renderer.cpp
+    Steps/Step07_Depth/Step07Renderer.hpp
+    Steps/Step07_Depth/Step07Scene.cpp
+    Steps/Step07_Depth/Step07Scene.hpp
 )
 
 # Platform-specific sources
@@ -207,7 +211,17 @@ add_custom_command(
     DEPENDS ${SHADER06_SRC}
     COMMENT "Compiling 06.Textures.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV})
+set(SHADER07_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/07.Depth.slang")
+set(SHADER07_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/07.Depth.spv")
+add_custom_command(
+    OUTPUT  ${SHADER07_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER07_SRC} -o ${SHADER07_SPV}
+    DEPENDS ${SHADER07_SRC}
+    COMMENT "Compiling 07.Depth.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Copy textures from source to build directory on every build
