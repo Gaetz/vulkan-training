@@ -1,9 +1,10 @@
-#include "Step05Renderer.hpp"
-#include "Step05Scene.hpp"
+#include "Step06Renderer.hpp"
+#include "Step06Scene.hpp"
 #include "../../BasicServices/Log.h"
 
 #include <VkBootstrap.h>
 #include <SDL3/SDL_vulkan.h>
+#include <stb_image.h>
 
 #include <array>
 #include <cstring>
@@ -12,13 +13,13 @@
 using services::Log;
 
 // =============================================================================
-//  Geometry data — same square as Step 04
+//  Geometry — colored textured square with UV coordinates
 // =============================================================================
-static const std::vector<Step05Renderer::Vertex> kVertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},  // top-left,     red
-    {{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},  // top-right,    green
-    {{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},  // bottom-right, blue
-    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}},  // bottom-left,  white
+static const std::vector<Step06Renderer::Vertex> kVertices = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},  // top-left,     red
+    {{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},  // top-right,    green
+    {{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},  // bottom-right, blue
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},  // bottom-left,  white
 };
 static const std::vector<uint16_t> kIndices = {0, 1, 2,  2, 3, 0};
 
@@ -44,11 +45,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(
 }
 
 // =============================================================================
-//  Destructor — VMA before RAII device
+//  Destructor — VMA-managed resources destroyed before vmaDestroyAllocator
 // =============================================================================
-Step05Renderer::~Step05Renderer() {
+Step06Renderer::~Step06Renderer() {
     for (auto& ub : uniformBuffers) ub.destroy();
     uniformBuffers.clear();
+    textureImage.destroy();
     vertexBuffer.destroy();
     indexBuffer.destroy();
     if (allocator != VK_NULL_HANDLE) {
@@ -59,29 +61,34 @@ Step05Renderer::~Step05Renderer() {
 
 // =============================================================================
 //  init
+//  Order: initCommandBuffers must precede initTextureImage (needs commandPool).
+//         initDescriptors must be last (needs textureImageView + textureSampler).
 // =============================================================================
-bool Step05Renderer::init(SDL_Window* w) {
+bool Step06Renderer::init(SDL_Window* w) {
     window = w;
 
-    if (!initVulkan(window))    return false;
-    if (!initSwapchain(window)) return false;
-    if (!initImageViews())      return false;
-    if (!initAllocator())       return false;
-    if (!initPipeline())        return false;
-    if (!initDescriptors())     return false;
-    if (!initCommandBuffers())  return false;
-    if (!initSyncObjects())     return false;
-    if (!initVertexBuffer())    return false;
-    if (!initIndexBuffer())     return false;
+    if (!initVulkan(window))       return false;
+    if (!initSwapchain(window))    return false;
+    if (!initImageViews())         return false;
+    if (!initAllocator())          return false;
+    if (!initPipeline())           return false;
+    if (!initCommandBuffers())     return false;
+    if (!initSyncObjects())        return false;
+    if (!initVertexBuffer())       return false;
+    if (!initIndexBuffer())        return false;
+    if (!initTextureImage())       return false;
+    if (!initTextureImageView())   return false;
+    if (!initTextureSampler())     return false;
+    if (!initDescriptors())        return false;
 
-    Log::Info("Step05Renderer initialized — uniform buffer + MVP rotation ready.");
+    Log::Info("Step06Renderer initialized — textures ready.");
     return true;
 }
 
 // =============================================================================
 //  cleanup
 // =============================================================================
-void Step05Renderer::cleanup() {
+void Step06Renderer::cleanup() {
     device.waitIdle();
 
     inFlightFences.clear();
@@ -98,11 +105,16 @@ void Step05Renderer::cleanup() {
     descriptorPool.clear();
     descriptorSetLayout.clear();
 
+    // Texture RAII handles destroyed before VMA image
+    textureSampler.clear();
+    textureImageView.clear();
+
     cleanupSwapchain();
 
-    // GPU buffers must be destroyed before vmaDestroyAllocator
+    // VMA-managed resources — destroy before vmaDestroyAllocator
     for (auto& ub : uniformBuffers) ub.destroy();
     uniformBuffers.clear();
+    textureImage.destroy();
     vertexBuffer.destroy();
     indexBuffer.destroy();
 
@@ -116,21 +128,18 @@ void Step05Renderer::cleanup() {
     debugMessenger.clear();
     instance.clear();
 
-    Log::Info("Step05Renderer cleaned up.");
+    Log::Info("Step06Renderer cleaned up.");
 }
 
 // =============================================================================
-//  cleanupSwapchain
+//  cleanupSwapchain / recreateSwapchain
 // =============================================================================
-void Step05Renderer::cleanupSwapchain() {
+void Step06Renderer::cleanupSwapchain() {
     imageViews.clear();
     swapchain.clear();
 }
 
-// =============================================================================
-//  recreateSwapchain
-// =============================================================================
-void Step05Renderer::recreateSwapchain() {
+void Step06Renderer::recreateSwapchain() {
     int w = 0, h = 0;
     SDL_GetWindowSizeInPixels(window, &w, &h);
     while (w == 0 || h == 0) {
@@ -153,10 +162,148 @@ void Step05Renderer::recreateSwapchain() {
 }
 
 // =============================================================================
-//  initDescriptors — uniform buffers + pool + descriptor sets
+//  Single-time command helpers
+//  Used by copyBuffer, transitionImageLayout, and copyBufferToImage.
+//  vk::raii::CommandBuffer is move-only — pass via std::move.
 // =============================================================================
-bool Step05Renderer::initDescriptors() {
-    // One persistently-mapped uniform buffer per frame in flight
+vk::raii::CommandBuffer Step06Renderer::beginSingleTimeCommands() {
+    auto cmds = device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
+        .commandPool        = *commandPool,
+        .level              = vk::CommandBufferLevel::ePrimary,
+        .commandBufferCount = 1,
+    });
+    vk::raii::CommandBuffer cmd = std::move(cmds[0]);
+    cmd.begin(vk::CommandBufferBeginInfo{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    });
+    return cmd;
+}
+
+void Step06Renderer::endSingleTimeCommands(vk::raii::CommandBuffer cmd) {
+    cmd.end();
+    vk::CommandBuffer raw = *cmd;
+    graphicsQueue.submit(vk::SubmitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers    = &raw,
+    });
+    graphicsQueue.waitIdle();
+}
+
+// =============================================================================
+//  copyBuffer — one-shot transfer
+// =============================================================================
+void Step06Renderer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
+    auto cmd = beginSingleTimeCommands();
+    cmd.copyBuffer(src, dst, vk::BufferCopy{.size = size});
+    endSingleTimeCommands(std::move(cmd));
+}
+
+// =============================================================================
+//  initTextureImage — load via stb_image, upload via staging buffer
+//  Texture path: assets/textures/texture.jpg (relative to the binary).
+// =============================================================================
+bool Step06Renderer::initTextureImage() {
+    int texWidth = 0, texHeight = 0, texChannels = 0;
+    stbi_uc* pixels = stbi_load("assets/textures/texture.jpg",
+                                 &texWidth, &texHeight, &texChannels,
+                                 STBI_rgb_alpha);
+    if (!pixels) {
+        Log::Error("Failed to load texture: %s", stbi_failure_reason());
+        return false;
+    }
+
+    const vk::DeviceSize imageSize =
+        static_cast<vk::DeviceSize>(texWidth * texHeight * 4);
+
+    Buffer staging{allocator, imageSize,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+        VMA_ALLOCATION_CREATE_MAPPED_BIT};
+    staging.upload(pixels, static_cast<size_t>(imageSize));
+    stbi_image_free(pixels);
+
+    textureImage = Image{allocator,
+        static_cast<uint32_t>(texWidth),
+        static_cast<uint32_t>(texHeight),
+        vk::Format::eR8G8B8A8Srgb,
+        vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled};
+
+    // All three operations in a single command buffer submission.
+    {
+        auto cmd = beginSingleTimeCommands();
+        textureImage.recordTransitionLayout(*cmd,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eTransferDstOptimal);
+        textureImage.recordCopyFromBuffer(*cmd, staging.get());
+        textureImage.recordTransitionLayout(*cmd,
+            vk::ImageLayout::eTransferDstOptimal,
+            vk::ImageLayout::eShaderReadOnlyOptimal);
+        endSingleTimeCommands(std::move(cmd));
+    }
+
+    Log::Info("Texture image loaded (%dx%d, RGBA).", texWidth, texHeight);
+    return true;
+}
+
+// =============================================================================
+//  initTextureImageView
+// =============================================================================
+bool Step06Renderer::initTextureImageView() {
+    textureImageView = device.createImageView(vk::ImageViewCreateInfo{
+        .image    = textureImage.get(),
+        .viewType = vk::ImageViewType::e2D,
+        .format   = vk::Format::eR8G8B8A8Srgb,
+        .components = {
+            .r = vk::ComponentSwizzle::eIdentity,
+            .g = vk::ComponentSwizzle::eIdentity,
+            .b = vk::ComponentSwizzle::eIdentity,
+            .a = vk::ComponentSwizzle::eIdentity,
+        },
+        .subresourceRange = {
+            .aspectMask     = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel   = 0, .levelCount     = 1,
+            .baseArrayLayer = 0, .layerCount     = 1,
+        },
+    });
+    Log::Info("Texture image view created.");
+    return true;
+}
+
+// =============================================================================
+//  initTextureSampler
+//  samplerAnisotropy is enabled via set_required_features() in initVulkan().
+// =============================================================================
+bool Step06Renderer::initTextureSampler() {
+    auto props = physDevice.getProperties();
+    textureSampler = device.createSampler(vk::SamplerCreateInfo{
+        .magFilter               = vk::Filter::eLinear,
+        .minFilter               = vk::Filter::eLinear,
+        .mipmapMode              = vk::SamplerMipmapMode::eLinear,
+        .addressModeU            = vk::SamplerAddressMode::eRepeat,
+        .addressModeV            = vk::SamplerAddressMode::eRepeat,
+        .addressModeW            = vk::SamplerAddressMode::eRepeat,
+        .mipLodBias              = 0.0f,
+        .anisotropyEnable        = true,
+        .maxAnisotropy           = props.limits.maxSamplerAnisotropy,
+        .compareEnable           = false,
+        .compareOp               = vk::CompareOp::eAlways,
+        .minLod                  = 0.0f,
+        .maxLod                  = 0.0f,
+        .borderColor             = vk::BorderColor::eIntOpaqueBlack,
+        .unnormalizedCoordinates = false,
+    });
+    Log::Info("Texture sampler created (max anisotropy: %.1f).",
+              props.limits.maxSamplerAnisotropy);
+    return true;
+}
+
+// =============================================================================
+//  initDescriptors — uniform buffers + combined image sampler + pool + sets
+//  Must run after initTextureImageView() and initTextureSampler().
+// =============================================================================
+bool Step06Renderer::initDescriptors() {
+    // Persistently-mapped uniform buffers (one per frame in flight)
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         uniformBuffers.emplace_back(
             allocator,
@@ -167,47 +314,62 @@ bool Step05Renderer::initDescriptors() {
             VMA_ALLOCATION_CREATE_MAPPED_BIT);
     }
 
-    // Descriptor pool — one UBO descriptor per frame
-    vk::DescriptorPoolSize poolSize{
-        .type            = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = MAX_FRAMES_IN_FLIGHT,
-    };
+    // Descriptor pool — UBO + combined image sampler, one set per frame
+    std::array<vk::DescriptorPoolSize, 2> poolSizes = {{
+        {.type = vk::DescriptorType::eUniformBuffer,
+         .descriptorCount = MAX_FRAMES_IN_FLIGHT},
+        {.type = vk::DescriptorType::eCombinedImageSampler,
+         .descriptorCount = MAX_FRAMES_IN_FLIGHT},
+    }};
     descriptorPool = device.createDescriptorPool(vk::DescriptorPoolCreateInfo{
         .maxSets       = MAX_FRAMES_IN_FLIGHT,
-        .poolSizeCount = 1,
-        .pPoolSizes    = &poolSize,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes    = poolSizes.data(),
     });
 
-    // Allocate one descriptor set per frame (all sharing the same layout)
+    // Allocate one descriptor set per frame (non-owning handles; pool frees them)
     std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
                                                   *descriptorSetLayout);
-    // Use the non-RAII device to get non-owning vk::DescriptorSet handles.
-    // The pool owns the sets; they are freed when the pool is destroyed.
     descriptorSets = (*device).allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
         .descriptorPool     = *descriptorPool,
         .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
         .pSetLayouts        = layouts.data(),
     });
 
-    // Point each descriptor set at its corresponding uniform buffer
+    // Update each set: binding 0 = UBO, binding 1 = combined image sampler
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         vk::DescriptorBufferInfo bufferInfo{
             .buffer = uniformBuffers[i].get(),
             .offset = 0,
             .range  = sizeof(UniformBufferObject),
         };
-        vk::WriteDescriptorSet write{
-            .dstSet          = descriptorSets[i],
-            .dstBinding      = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType  = vk::DescriptorType::eUniformBuffer,
-            .pBufferInfo     = &bufferInfo,
+        vk::DescriptorImageInfo imageInfo{
+            .sampler     = *textureSampler,
+            .imageView   = *textureImageView,
+            .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
         };
-        (*device).updateDescriptorSets(write, nullptr);
+        std::array<vk::WriteDescriptorSet, 2> writes = {{
+            {
+                .dstSet          = descriptorSets[i],
+                .dstBinding      = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = vk::DescriptorType::eUniformBuffer,
+                .pBufferInfo     = &bufferInfo,
+            },
+            {
+                .dstSet          = descriptorSets[i],
+                .dstBinding      = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
+                .pImageInfo      = &imageInfo,
+            },
+        }};
+        (*device).updateDescriptorSets(writes, nullptr);
     }
 
-    Log::Info("Descriptors ready — %u uniform buffers, %u descriptor sets.",
+    Log::Info("Descriptors ready — %u UBOs, %u combined image samplers.",
               MAX_FRAMES_IN_FLIGHT, MAX_FRAMES_IN_FLIGHT);
     return true;
 }
@@ -215,7 +377,7 @@ bool Step05Renderer::initDescriptors() {
 // =============================================================================
 //  initVertexBuffer — staging → device-local
 // =============================================================================
-bool Step05Renderer::initVertexBuffer() {
+bool Step06Renderer::initVertexBuffer() {
     const vk::DeviceSize size = sizeof(kVertices[0]) * kVertices.size();
 
     Buffer staging{allocator, size,
@@ -223,14 +385,12 @@ bool Step05Renderer::initVertexBuffer() {
         VMA_MEMORY_USAGE_AUTO,
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
         VMA_ALLOCATION_CREATE_MAPPED_BIT};
-
     staging.upload(kVertices.data(), static_cast<size_t>(size));
 
     vertexBuffer = Buffer{allocator, size,
         vk::BufferUsageFlagBits::eVertexBuffer |
         vk::BufferUsageFlagBits::eTransferDst,
         VMA_MEMORY_USAGE_AUTO};
-
     copyBuffer(staging.get(), vertexBuffer.get(), size);
 
     Log::Info("Vertex buffer created (%zu vertices, %zu bytes).",
@@ -241,7 +401,7 @@ bool Step05Renderer::initVertexBuffer() {
 // =============================================================================
 //  initIndexBuffer — staging → device-local
 // =============================================================================
-bool Step05Renderer::initIndexBuffer() {
+bool Step06Renderer::initIndexBuffer() {
     const vk::DeviceSize size = sizeof(kIndices[0]) * kIndices.size();
     indexCount = static_cast<uint32_t>(kIndices.size());
 
@@ -250,14 +410,12 @@ bool Step05Renderer::initIndexBuffer() {
         VMA_MEMORY_USAGE_AUTO,
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
         VMA_ALLOCATION_CREATE_MAPPED_BIT};
-
     staging.upload(kIndices.data(), static_cast<size_t>(size));
 
     indexBuffer = Buffer{allocator, size,
         vk::BufferUsageFlagBits::eIndexBuffer |
         vk::BufferUsageFlagBits::eTransferDst,
         VMA_MEMORY_USAGE_AUTO};
-
     copyBuffer(staging.get(), indexBuffer.get(), size);
 
     Log::Info("Index buffer created (%u indices, %zu bytes).",
@@ -266,34 +424,9 @@ bool Step05Renderer::initIndexBuffer() {
 }
 
 // =============================================================================
-//  copyBuffer — one-shot transfer using a temporary command buffer
-// =============================================================================
-void Step05Renderer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-    auto cmds = device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-        .commandPool        = *commandPool,
-        .level              = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1,
-    });
-    auto& cmd = cmds[0];
-
-    cmd.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-    cmd.copyBuffer(src, dst, vk::BufferCopy{.size = size});
-    cmd.end();
-
-    vk::CommandBuffer raw = *cmd;
-    graphicsQueue.submit(vk::SubmitInfo{
-        .commandBufferCount = 1,
-        .pCommandBuffers    = &raw,
-    });
-    graphicsQueue.waitIdle();
-}
-
-// =============================================================================
 //  render
 // =============================================================================
-void Step05Renderer::render(IScene& scene) {
+void Step06Renderer::render(IScene& scene) {
     auto waitResult = device.waitForFences(*inFlightFences[currentFrame], true, UINT64_MAX);
     if (waitResult != vk::Result::eSuccess) return;
 
@@ -313,9 +446,9 @@ void Step05Renderer::render(IScene& scene) {
             return;
     }
 
-    // Assemble UBO: model+view from the scene, proj from the renderer (swapchain extent).
+    // Assemble UBO: model+view from the scene, proj from the renderer.
     {
-        auto& s = static_cast<Step05Scene&>(scene);
+        auto& s = static_cast<Step06Scene&>(scene);
         UniformBufferObject ubo{};
         ubo.model = s.getModelMatrix();
         ubo.view  = s.getViewMatrix();
@@ -365,7 +498,7 @@ void Step05Renderer::render(IScene& scene) {
 // =============================================================================
 //  recordCommandBuffer
 // =============================================================================
-void Step05Renderer::recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex) {
+void Step06Renderer::recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex) {
     cmd.begin(vk::CommandBufferBeginInfo{
         .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
     });
@@ -406,8 +539,6 @@ void Step05Renderer::recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t 
     });
 
     cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
-
-    // Bind the descriptor set for this frame (UBO with MVP matrices)
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout,
                             0, descriptorSets[currentFrame], {});
 
@@ -453,7 +584,7 @@ void Step05Renderer::recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t 
 // =============================================================================
 //  initCommandBuffers
 // =============================================================================
-bool Step05Renderer::initCommandBuffers() {
+bool Step06Renderer::initCommandBuffers() {
     commandPool = device.createCommandPool(vk::CommandPoolCreateInfo{
         .flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         .queueFamilyIndex = graphicsQueueFamily,
@@ -470,7 +601,7 @@ bool Step05Renderer::initCommandBuffers() {
 // =============================================================================
 //  initSyncObjects
 // =============================================================================
-bool Step05Renderer::initSyncObjects() {
+bool Step06Renderer::initSyncObjects() {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         imageAvailableSemaphores.push_back(device.createSemaphore({}));
         inFlightFences.push_back(device.createFence(vk::FenceCreateInfo{
@@ -487,10 +618,11 @@ bool Step05Renderer::initSyncObjects() {
 
 // =============================================================================
 //  initVulkan
+//  Adds samplerAnisotropy to the required physical device features.
 // =============================================================================
-bool Step05Renderer::initVulkan(SDL_Window* w) {
+bool Step06Renderer::initVulkan(SDL_Window* w) {
     auto instanceResult = vkb::InstanceBuilder{}
-        .set_app_name("Vulkan Tutorial — Step 05")
+        .set_app_name("Vulkan Tutorial — Step 06")
         .set_engine_name("No Engine")
         .require_api_version(1, 4, 0)
 #ifndef NDEBUG
@@ -525,6 +657,9 @@ bool Step05Renderer::initVulkan(SDL_Window* w) {
     auto physDeviceResult = vkb::PhysicalDeviceSelector{vkbInst}
         .set_surface(rawSurface)
         .set_minimum_version(1, 4)
+        .set_required_features(VkPhysicalDeviceFeatures{
+            .samplerAnisotropy = VK_TRUE,
+        })
         .set_required_features_11(VkPhysicalDeviceVulkan11Features{
             .shaderDrawParameters = VK_TRUE,
         })
@@ -567,7 +702,7 @@ bool Step05Renderer::initVulkan(SDL_Window* w) {
 // =============================================================================
 //  initSwapchain
 // =============================================================================
-bool Step05Renderer::initSwapchain(SDL_Window* w) {
+bool Step06Renderer::initSwapchain(SDL_Window* w) {
     int fbWidth = 0, fbHeight = 0;
     SDL_GetWindowSizeInPixels(w, &fbWidth, &fbHeight);
 
@@ -604,7 +739,7 @@ bool Step05Renderer::initSwapchain(SDL_Window* w) {
 // =============================================================================
 //  initImageViews
 // =============================================================================
-bool Step05Renderer::initImageViews() {
+bool Step06Renderer::initImageViews() {
     for (vk::Image image : swapchainImages) {
         imageViews.push_back(device.createImageView(vk::ImageViewCreateInfo{
             .image    = image,
@@ -630,7 +765,7 @@ bool Step05Renderer::initImageViews() {
 // =============================================================================
 //  initAllocator
 // =============================================================================
-bool Step05Renderer::initAllocator() {
+bool Step06Renderer::initAllocator() {
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice   = *physDevice;
     allocatorInfo.device           = *device;
@@ -649,7 +784,7 @@ bool Step05Renderer::initAllocator() {
 // =============================================================================
 //  loadShaderModule
 // =============================================================================
-vk::raii::ShaderModule Step05Renderer::loadShaderModule(const std::string& path) {
+vk::raii::ShaderModule Step06Renderer::loadShaderModule(const std::string& path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     if (!file.is_open()) {
         Log::Error("Failed to open shader file: %s", path.c_str());
@@ -667,22 +802,31 @@ vk::raii::ShaderModule Step05Renderer::loadShaderModule(const std::string& path)
 
 // =============================================================================
 //  initPipeline
-//  Key change vs Step 04: descriptor set layout + updated pipeline layout.
+//  Descriptor set layout: binding 0 = UBO (vertex), binding 1 = sampler (fragment).
+//  Vertex input: 3 attributes (pos, color, texCoord).
 // =============================================================================
-bool Step05Renderer::initPipeline() {
-    // Descriptor set layout — binding 0: one UBO in the vertex stage
-    vk::DescriptorSetLayoutBinding uboBinding{
-        .binding         = 0,
-        .descriptorType  = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-        .stageFlags      = vk::ShaderStageFlagBits::eVertex,
-    };
+bool Step06Renderer::initPipeline() {
+    // Descriptor set layout — binding 0: UBO, binding 1: combined image sampler
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {{
+        {
+            .binding         = 0,
+            .descriptorType  = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags      = vk::ShaderStageFlagBits::eVertex,
+        },
+        {
+            .binding         = 1,
+            .descriptorType  = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags      = vk::ShaderStageFlagBits::eFragment,
+        },
+    }};
     descriptorSetLayout = device.createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo{
-        .bindingCount = 1,
-        .pBindings    = &uboBinding,
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings    = bindings.data(),
     });
 
-    auto shaderModule = loadShaderModule("assets/shaders/05.UniformBuffer.spv");
+    auto shaderModule = loadShaderModule("assets/shaders/06.Textures.spv");
     if (!*shaderModule) return false;
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{
@@ -760,6 +904,6 @@ bool Step05Renderer::initPipeline() {
         .layout              = *pipelineLayout,
     });
 
-    Log::Info("Graphics pipeline created (descriptor set layout + UBO binding).");
+    Log::Info("Graphics pipeline created (UBO + combined image sampler).");
     return true;
 }

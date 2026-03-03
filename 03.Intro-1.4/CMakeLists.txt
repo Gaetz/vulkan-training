@@ -109,6 +109,8 @@ add_executable(VulkanIntro
     Engine/Renderer/IRenderer.hpp
     Engine/Renderer/Buffer.hpp
     Engine/Renderer/Buffer.cpp
+    Engine/Renderer/Image.hpp
+    Engine/Renderer/Image.cpp
     Engine/IScene.hpp
     Steps/Step00_Setup/Step00Renderer.cpp
     Steps/Step00_Setup/Step00Renderer.hpp
@@ -129,6 +131,10 @@ add_executable(VulkanIntro
     Steps/Step05_UniformBuffer/Step05Renderer.hpp
     Steps/Step05_UniformBuffer/Step05Scene.cpp
     Steps/Step05_UniformBuffer/Step05Scene.hpp
+    Steps/Step06_Textures/Step06Renderer.cpp
+    Steps/Step06_Textures/Step06Renderer.hpp
+    Steps/Step06_Textures/Step06Scene.cpp
+    Steps/Step06_Textures/Step06Scene.hpp
 )
 
 # Platform-specific sources
@@ -183,8 +189,26 @@ add_custom_command(
     DEPENDS ${SHADER05_SRC}
     COMMENT "Compiling 05.UniformBuffer.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV})
+set(SHADER06_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/06.Textures.slang")
+set(SHADER06_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/06.Textures.spv")
+add_custom_command(
+    OUTPUT  ${SHADER06_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER06_SRC} -o ${SHADER06_SPV}
+    DEPENDS ${SHADER06_SRC}
+    COMMENT "Compiling 06.Textures.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV})
 add_dependencies(VulkanIntro Shaders)
+
+# Copy textures from source to build directory on every build
+add_custom_command(TARGET VulkanIntro POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/textures"
+            "${CMAKE_CURRENT_BINARY_DIR}/assets/textures"
+    COMMENT "Copying assets/textures → build directory"
+)
 
 # Set rpath for macOS to find Vulkan and SDL3 libraries at runtime
 if(APPLE)
