@@ -7,7 +7,6 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include <array>
-#include <fstream>
 
 using services::Log;
 
@@ -322,30 +321,6 @@ bool Step01Renderer::initAllocator() {
 }
 
 // =============================================================================
-//  loadShaderModule — reads a SPIR-V binary and wraps it in a ShaderModule
-//
-//  The file is opened in binary mode with seekg(0, end) to get the byte size.
-//  The buffer is sized in uint32_t words (SPIR-V is 4-byte aligned).
-// =============================================================================
-vk::raii::ShaderModule Step01Renderer::loadShaderModule(const std::string& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        Log::Error("Failed to open shader file: %s", path.c_str());
-        return vk::raii::ShaderModule{nullptr};
-    }
-
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    std::vector<uint32_t> code(fileSize / sizeof(uint32_t));
-    file.seekg(0);
-    file.read(reinterpret_cast<char*>(code.data()), static_cast<std::streamsize>(fileSize));
-
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = fileSize,
-        .pCode    = code.data(),
-    });
-}
-
-// =============================================================================
 //  initPipeline — creates the graphics pipeline using dynamic rendering
 //
 //  No VkRenderPass is needed: vk::PipelineRenderingCreateInfo is chained via
@@ -355,7 +330,7 @@ vk::raii::ShaderModule Step01Renderer::loadShaderModule(const std::string& path)
 // =============================================================================
 bool Step01Renderer::initPipeline() {
     // 1. Load shader (both stages share the same SPIR-V module)
-    auto shaderModule = loadShaderModule("assets/shaders/01.BasicPipeline.spv");
+    auto shaderModule = loadShaderModule(device, "assets/shaders/01.BasicPipeline.spv");
     if (!*shaderModule) return false;
 
     // 2. Shader stages

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "../../Engine/Renderer/IRenderer.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
 
 // Step 02 — Triangle (command buffers + rendering + frames in flight)
 class Step02Renderer : public IRenderer {
@@ -75,5 +76,4 @@ private:
     bool initCommandBuffers();
     bool initSyncObjects();
     void recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex);
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

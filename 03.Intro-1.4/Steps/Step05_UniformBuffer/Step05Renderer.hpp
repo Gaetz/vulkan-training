@@ -17,6 +17,8 @@
 
 #include "../../Engine/Renderer/IRenderer.hpp"
 #include "../../Engine/Renderer/Buffer.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
+#include "../../Engine/Renderer/ImmediateSubmit.hpp"
 
 // Step 05 — Uniform buffer: MVP matrices passed to the vertex shader via a UBO.
 class Step05Renderer : public IRenderer {
@@ -139,7 +141,7 @@ private:
     void cleanupSwapchain();
     void recreateSwapchain();
 
+    void destroyVMAResources();
     void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
     void recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex);
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

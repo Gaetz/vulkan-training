@@ -17,7 +17,9 @@
 
 #include "../../Engine/Renderer/IRenderer.hpp"
 #include "../../Engine/Renderer/Buffer.hpp"
-#include "../../Engine/Renderer/Image.hpp"
+#include "../../Engine/Renderer/Texture.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
+#include "../../Engine/Renderer/ImmediateSubmit.hpp"
 
 // Step 06 — Textures: combined image sampler at binding 1, texCoord at vertex location 2.
 class Step06Renderer : public IRenderer {
@@ -87,9 +89,8 @@ private:
     vk::raii::PipelineLayout pipelineLayout{nullptr};
     vk::raii::Pipeline       graphicsPipeline{nullptr};
 
-    // --- Texture resources (RAII; destroyed before VMA allocator via explicit clear) ---
-    vk::raii::ImageView textureImageView{nullptr};
-    vk::raii::Sampler   textureSampler{nullptr};
+    // --- Texture (image + view + sampler; destroyed before VMA allocator via texture.destroy()) ---
+    Texture texture;
 
     // --- Descriptor pool + sets (non-owning; pool owns the sets) ---
     vk::raii::DescriptorPool       descriptorPool{nullptr};
@@ -104,11 +105,10 @@ private:
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
     std::vector<vk::raii::Fence>     inFlightFences;
 
-    // --- GPU buffers / images (VMA-managed; destroyed before vmaDestroyAllocator) ---
+    // --- GPU buffers (VMA-managed; destroyed before vmaDestroyAllocator) ---
     Buffer   vertexBuffer;
     Buffer   indexBuffer;
     uint32_t indexCount = 0;
-    Image    textureImage;
 
     // --- Uniform buffers — one per frame in flight, persistently mapped ---
     std::vector<Buffer> uniformBuffers;
@@ -142,19 +142,13 @@ private:
     bool initSyncObjects();
     bool initVertexBuffer();
     bool initIndexBuffer();
-    bool initTextureImage();
-    bool initTextureImageView();
-    bool initTextureSampler();
+    bool initTexture();
     bool initDescriptors();
 
     void cleanupSwapchain();
     void recreateSwapchain();
 
-    // Single-time command helpers (refactors copyBuffer; also used for image uploads)
-    vk::raii::CommandBuffer beginSingleTimeCommands();
-    void endSingleTimeCommands(vk::raii::CommandBuffer cmd);
-
+    void destroyVMAResources();
     void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
     void recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex);
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

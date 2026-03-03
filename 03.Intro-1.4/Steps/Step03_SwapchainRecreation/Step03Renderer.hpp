@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "../../Engine/Renderer/IRenderer.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
 
 // Step 03 — Swapchain recreation on resize / out-of-date
 class Step03Renderer : public IRenderer {
@@ -83,5 +84,4 @@ private:
     void recreateSwapchain();
 
     void recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex);
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

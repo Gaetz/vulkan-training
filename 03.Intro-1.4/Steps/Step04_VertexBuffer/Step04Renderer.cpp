@@ -6,7 +6,6 @@
 
 #include <array>
 #include <cstring>
-#include <fstream>
 
 using services::Log;
 
@@ -43,13 +42,23 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkanDebugCallback(
 }
 
 // =============================================================================
-//  Destructor — VMA before RAII device
+//  destroyVMAResources — destroy VMA-managed buffers then the allocator.
+//  Called from both cleanup() and the destructor so neither duplicates code.
 // =============================================================================
-Step04Renderer::~Step04Renderer() {
+void Step04Renderer::destroyVMAResources() {
+    vertexBuffer.destroy();
+    indexBuffer.destroy();
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);
         allocator = VK_NULL_HANDLE;
     }
+}
+
+// =============================================================================
+//  Destructor — VMA before RAII device
+// =============================================================================
+Step04Renderer::~Step04Renderer() {
+    destroyVMAResources();
 }
 
 // =============================================================================
@@ -89,14 +98,7 @@ void Step04Renderer::cleanup() {
 
     cleanupSwapchain();
 
-    // GPU buffers must be destroyed before vmaDestroyAllocator
-    vertexBuffer.destroy();
-    indexBuffer.destroy();
-
-    if (allocator != VK_NULL_HANDLE) {
-        vmaDestroyAllocator(allocator);
-        allocator = VK_NULL_HANDLE;
-    }
+    destroyVMAResources();
 
     device.clear();
     surface.clear();
@@ -198,28 +200,12 @@ bool Step04Renderer::initIndexBuffer() {
 }
 
 // =============================================================================
-//  copyBuffer — one-shot transfer using a temporary command buffer
+//  copyBuffer — one-shot transfer via ImmediateSubmit
 // =============================================================================
 void Step04Renderer::copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size) {
-    auto cmds = device.allocateCommandBuffers(vk::CommandBufferAllocateInfo{
-        .commandPool        = *commandPool,
-        .level              = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = 1,
+    ImmediateSubmit{device, commandPool, graphicsQueue}([&](vk::CommandBuffer cmd) {
+        cmd.copyBuffer(src, dst, vk::BufferCopy{.size = size});
     });
-    auto& cmd = cmds[0];
-
-    cmd.begin(vk::CommandBufferBeginInfo{
-        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
-    });
-    cmd.copyBuffer(src, dst, vk::BufferCopy{.size = size});
-    cmd.end();
-
-    vk::CommandBuffer raw = *cmd;
-    graphicsQueue.submit(vk::SubmitInfo{
-        .commandBufferCount = 1,
-        .pCommandBuffers    = &raw,
-    });
-    graphicsQueue.waitIdle();
 }
 
 // =============================================================================
@@ -575,30 +561,11 @@ bool Step04Renderer::initAllocator() {
 }
 
 // =============================================================================
-//  loadShaderModule
-// =============================================================================
-vk::raii::ShaderModule Step04Renderer::loadShaderModule(const std::string& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        Log::Error("Failed to open shader file: %s", path.c_str());
-        return vk::raii::ShaderModule{nullptr};
-    }
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    std::vector<uint32_t> code(fileSize / sizeof(uint32_t));
-    file.seekg(0);
-    file.read(reinterpret_cast<char*>(code.data()), static_cast<std::streamsize>(fileSize));
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = fileSize,
-        .pCode    = code.data(),
-    });
-}
-
-// =============================================================================
 //  initPipeline
 //  Key change vs Step03: vertex input state now describes the Vertex layout.
 // =============================================================================
 bool Step04Renderer::initPipeline() {
-    auto shaderModule = loadShaderModule("assets/shaders/04.VertexBuffer.spv");
+    auto shaderModule = loadShaderModule(device, "assets/shaders/04.VertexBuffer.spv");
     if (!*shaderModule) return false;
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{

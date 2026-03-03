@@ -5,7 +5,6 @@
 #include <SDL3/SDL_vulkan.h>
 
 #include <array>
-#include <fstream>
 
 using services::Log;
 
@@ -499,29 +498,10 @@ bool Step03Renderer::initAllocator() {
 }
 
 // =============================================================================
-//  loadShaderModule
-// =============================================================================
-vk::raii::ShaderModule Step03Renderer::loadShaderModule(const std::string& path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
-        Log::Error("Failed to open shader file: %s", path.c_str());
-        return vk::raii::ShaderModule{nullptr};
-    }
-    size_t fileSize = static_cast<size_t>(file.tellg());
-    std::vector<uint32_t> code(fileSize / sizeof(uint32_t));
-    file.seekg(0);
-    file.read(reinterpret_cast<char*>(code.data()), static_cast<std::streamsize>(fileSize));
-    return device.createShaderModule(vk::ShaderModuleCreateInfo{
-        .codeSize = fileSize,
-        .pCode    = code.data(),
-    });
-}
-
-// =============================================================================
 //  initPipeline — identical to Step02, reuses 01.BasicPipeline.spv
 // =============================================================================
 bool Step03Renderer::initPipeline() {
-    auto shaderModule = loadShaderModule("assets/shaders/01.BasicPipeline.spv");
+    auto shaderModule = loadShaderModule(device, "assets/shaders/01.BasicPipeline.spv");
     if (!*shaderModule) return false;
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {{

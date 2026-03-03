@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "../../Engine/Renderer/IRenderer.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
 
 // Step 01 — Basic Pipeline
 class Step01Renderer : public IRenderer {
@@ -61,5 +62,4 @@ private:
     bool initImageViews();
     bool initAllocator();
     bool initPipeline();
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

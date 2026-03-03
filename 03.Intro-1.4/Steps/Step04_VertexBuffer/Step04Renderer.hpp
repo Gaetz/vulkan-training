@@ -13,6 +13,8 @@
 
 #include "../../Engine/Renderer/IRenderer.hpp"
 #include "../../Engine/Renderer/Buffer.hpp"
+#include "../../Engine/Renderer/ShaderLoader.hpp"
+#include "../../Engine/Renderer/ImmediateSubmit.hpp"
 
 // Step 04 — Vertex buffer + staging buffer + index buffer
 class Step04Renderer : public IRenderer {
@@ -121,9 +123,7 @@ private:
     void cleanupSwapchain();
     void recreateSwapchain();
 
-    // One-shot transfer: copies size bytes from src to dst via a temporary cmd buf.
+    void destroyVMAResources();
     void copyBuffer(vk::Buffer src, vk::Buffer dst, vk::DeviceSize size);
-
     void recordCommandBuffer(vk::raii::CommandBuffer& cmd, uint32_t imageIndex);
-    vk::raii::ShaderModule loadShaderModule(const std::string& path);
 };

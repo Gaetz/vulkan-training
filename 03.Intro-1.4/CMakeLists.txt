@@ -111,6 +111,14 @@ add_executable(VulkanIntro
     Engine/Renderer/Buffer.cpp
     Engine/Renderer/Image.hpp
     Engine/Renderer/Image.cpp
+    Engine/Renderer/Texture.hpp
+    Engine/Renderer/Texture.cpp
+    Engine/Renderer/TextureLoader.hpp
+    Engine/Renderer/TextureLoader.cpp
+    Engine/Renderer/ShaderLoader.hpp
+    Engine/Renderer/ShaderLoader.cpp
+    Engine/Renderer/ImmediateSubmit.hpp
+    Engine/Renderer/ImmediateSubmit.cpp
     Engine/IScene.hpp
     Steps/Step00_Setup/Step00Renderer.cpp
     Steps/Step00_Setup/Step00Renderer.hpp
