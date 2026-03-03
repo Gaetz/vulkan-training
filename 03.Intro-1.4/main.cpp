@@ -42,6 +42,8 @@
 #include "Steps/Step08_Modele3D/Step08Scene.hpp"
 #include "Steps/Step09_MultisamplingMipMaps/Step09Renderer.hpp"
 #include "Steps/Step09_MultisamplingMipMaps/Step09Scene.hpp"
+#include "Steps/Step10_ComputeShaderParticles/Step10Renderer.hpp"
+#include "Steps/Step10_ComputeShaderParticles/Step10Scene.hpp"
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
@@ -53,8 +55,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    app.getEngine().setRenderer(std::make_unique<Step09Renderer>());
-    app.getEngine().setScene(std::make_unique<Step09Scene>());
+    app.getEngine().setRenderer(std::make_unique<Step10Renderer>());
+    app.getEngine().setScene(std::make_unique<Step10Scene>());
     if (!app.getEngine().init()) return 1;
 
     app.mainLoop();

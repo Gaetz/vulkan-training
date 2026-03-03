@@ -159,6 +159,10 @@ add_executable(VulkanIntro
     Steps/Step09_MultisamplingMipMaps/Step09Renderer.hpp
     Steps/Step09_MultisamplingMipMaps/Step09Scene.cpp
     Steps/Step09_MultisamplingMipMaps/Step09Scene.hpp
+    Steps/Step10_ComputeShaderParticles/Step10Renderer.cpp
+    Steps/Step10_ComputeShaderParticles/Step10Renderer.hpp
+    Steps/Step10_ComputeShaderParticles/Step10Scene.cpp
+    Steps/Step10_ComputeShaderParticles/Step10Scene.hpp
 )
 
 # Platform-specific sources
@@ -253,7 +257,26 @@ add_custom_command(
     DEPENDS ${SHADER09_SRC}
     COMMENT "Compiling 09.Multisampling.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV} ${SHADER09_SPV})
+set(SHADER10_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/10.ComputeParticles.slang")
+set(SHADER10G_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/10.ComputeParticles.graphics.spv")
+set(SHADER10C_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/10.ComputeParticles.compute.spv")
+add_custom_command(
+    OUTPUT  ${SHADER10G_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER10_SRC} -o ${SHADER10G_SPV}
+    DEPENDS ${SHADER10_SRC}
+    COMMENT "Compiling 10.ComputeParticles.slang → graphics SPIR-V"
+)
+add_custom_command(
+    OUTPUT  ${SHADER10C_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry compMain ${SHADER10_SRC} -o ${SHADER10C_SPV}
+    DEPENDS ${SHADER10_SRC}
+    COMMENT "Compiling 10.ComputeParticles.slang → compute SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV} ${SHADER09_SPV} ${SHADER10G_SPV} ${SHADER10C_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Copy assets from source to build directory on every build
