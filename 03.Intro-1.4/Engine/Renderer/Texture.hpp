@@ -22,6 +22,7 @@ public:
     [[nodiscard]] vk::Image     getImage()   const { return image.get(); }
     [[nodiscard]] vk::ImageView getView()    const { return *imageView; }
     [[nodiscard]] vk::Sampler   getSampler() const { return *sampler; }
+    [[nodiscard]] bool          valid()      const { return image.valid(); }
 
     // Explicit destruction — safe to call multiple times.
     // Order: sampler → imageView → image.

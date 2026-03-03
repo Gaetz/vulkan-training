@@ -155,6 +155,10 @@ add_executable(VulkanIntro
     Steps/Step08_Modele3D/Step08Renderer.hpp
     Steps/Step08_Modele3D/Step08Scene.cpp
     Steps/Step08_Modele3D/Step08Scene.hpp
+    Steps/Step09_MultisamplingMipMaps/Step09Renderer.cpp
+    Steps/Step09_MultisamplingMipMaps/Step09Renderer.hpp
+    Steps/Step09_MultisamplingMipMaps/Step09Scene.cpp
+    Steps/Step09_MultisamplingMipMaps/Step09Scene.hpp
 )
 
 # Platform-specific sources
@@ -239,7 +243,17 @@ add_custom_command(
     DEPENDS ${SHADER08_SRC}
     COMMENT "Compiling 08.Modele3D.slang → SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV})
+set(SHADER09_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/09.Multisampling.slang")
+set(SHADER09_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/09.Multisampling.spv")
+add_custom_command(
+    OUTPUT  ${SHADER09_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER09_SRC} -o ${SHADER09_SPV}
+    DEPENDS ${SHADER09_SRC}
+    COMMENT "Compiling 09.Multisampling.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV} ${SHADER09_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Copy assets from source to build directory on every build

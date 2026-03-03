@@ -7,20 +7,22 @@
 //  (standard_layout struct). We reinterpret_cast to pass it to VMA's C API,
 //  then wrap the resulting VkImage in vk::Image.
 // =============================================================================
-Image::Image(VmaAllocator        allocator,
-             uint32_t            width,
-             uint32_t            height,
-             vk::Format          format,
-             vk::ImageUsageFlags usage)
-    : allocator(allocator), width(width), height(height), format(format)
+Image::Image(VmaAllocator             allocator,
+             uint32_t                 width,
+             uint32_t                 height,
+             vk::Format               format,
+             vk::ImageUsageFlags      usage,
+             vk::SampleCountFlagBits  samples,
+             uint32_t                 mipLevels)
+    : allocator(allocator), width(width), height(height), format(format), mipLevels(mipLevels)
 {
     vk::ImageCreateInfo imgInfo{
         .imageType     = vk::ImageType::e2D,
         .format        = format,
         .extent        = {width, height, 1},
-        .mipLevels     = 1,
+        .mipLevels     = mipLevels,
         .arrayLayers   = 1,
-        .samples       = vk::SampleCountFlagBits::e1,
+        .samples       = samples,
         .tiling        = vk::ImageTiling::eOptimal,
         .usage         = usage,
         .sharingMode   = vk::SharingMode::eExclusive,
@@ -55,6 +57,7 @@ Image::Image(Image&& other) noexcept
     , width(other.width)
     , height(other.height)
     , format(other.format)
+    , mipLevels(other.mipLevels)
 {
     other.allocator  = VK_NULL_HANDLE;
     other.image      = nullptr;
@@ -62,6 +65,7 @@ Image::Image(Image&& other) noexcept
     other.width      = 0;
     other.height     = 0;
     other.format     = vk::Format::eUndefined;
+    other.mipLevels  = 1;
 }
 
 Image& Image::operator=(Image&& other) noexcept {
@@ -73,12 +77,14 @@ Image& Image::operator=(Image&& other) noexcept {
         width      = other.width;
         height     = other.height;
         format     = other.format;
+        mipLevels  = other.mipLevels;
         other.allocator  = VK_NULL_HANDLE;
         other.image      = nullptr;
         other.allocation = VK_NULL_HANDLE;
         other.width      = 0;
         other.height     = 0;
         other.format     = vk::Format::eUndefined;
+        other.mipLevels  = 1;
     }
     return *this;
 }

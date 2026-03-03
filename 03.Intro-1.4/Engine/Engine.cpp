@@ -34,6 +34,7 @@ bool Engine::init() {
             renderer->cleanup();
             return false;
         }
+        renderer->onSceneReady(*scene);
     }
     Log::Info("Engine initialized.");
     initialized = true;
@@ -77,6 +78,7 @@ void Engine::render() {
 }
 
 void Engine::cleanup() {
+    if (renderer) renderer->waitIdle();
     if (scene) {
         scene->cleanup();
         scene.reset();
@@ -95,6 +97,7 @@ bool Engine::swapScene(std::unique_ptr<IScene> newScene) {
         Log::Error("Engine: cannot swap scene before init");
         return false;
     }
+    if (renderer) renderer->waitIdle();
     if (scene) scene->cleanup();
     scene = std::move(newScene);
     if (scene && !scene->init(*renderer)) {
@@ -102,6 +105,7 @@ bool Engine::swapScene(std::unique_ptr<IScene> newScene) {
         scene.reset();
         return false;
     }
+    if (scene) renderer->onSceneReady(*scene);
     Log::Info("Engine: scene swapped.");
     return true;
 }
@@ -111,6 +115,7 @@ bool Engine::swapRenderer(std::unique_ptr<IRenderer> newRenderer) {
         Log::Error("Engine: cannot swap renderer before init");
         return false;
     }
+    if (renderer) renderer->waitIdle();
     if (scene) scene->cleanup();
     if (renderer) renderer->cleanup();
     renderer = std::move(newRenderer);
@@ -125,6 +130,7 @@ bool Engine::swapRenderer(std::unique_ptr<IRenderer> newRenderer) {
         scene.reset();
         return false;
     }
+    if (scene) renderer->onSceneReady(*scene);
     Log::Info("Engine: renderer swapped.");
     return true;
 }

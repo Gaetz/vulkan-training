@@ -22,11 +22,13 @@
 class Image {
 public:
     Image() = default;
-    Image(VmaAllocator        allocator,
-          uint32_t            width,
-          uint32_t            height,
-          vk::Format          format,
-          vk::ImageUsageFlags usage);
+    Image(VmaAllocator             allocator,
+          uint32_t                 width,
+          uint32_t                 height,
+          vk::Format               format,
+          vk::ImageUsageFlags      usage,
+          vk::SampleCountFlagBits  samples   = vk::SampleCountFlagBits::e1,
+          uint32_t                 mipLevels = 1);
 
     ~Image();
 
@@ -35,11 +37,12 @@ public:
     Image(Image&&) noexcept;
     Image& operator=(Image&&) noexcept;
 
-    [[nodiscard]] vk::Image  get()       const { return image; }
-    [[nodiscard]] bool       valid()     const { return !!image; }
-    [[nodiscard]] uint32_t   getWidth()  const { return width; }
-    [[nodiscard]] uint32_t   getHeight() const { return height; }
-    [[nodiscard]] vk::Format getFormat() const { return format; }
+    [[nodiscard]] vk::Image  get()          const { return image; }
+    [[nodiscard]] bool       valid()        const { return !!image; }
+    [[nodiscard]] uint32_t   getWidth()     const { return width; }
+    [[nodiscard]] uint32_t   getHeight()    const { return height; }
+    [[nodiscard]] vk::Format getFormat()    const { return format; }
+    [[nodiscard]] uint32_t   getMipLevels() const { return mipLevels; }
 
     // Records a layout transition barrier into cmd.
     // Supports:  eUndefined → eTransferDstOptimal
@@ -65,4 +68,5 @@ private:
     uint32_t      width      = 0;
     uint32_t      height     = 0;
     vk::Format    format     = vk::Format::eUndefined;
+    uint32_t      mipLevels  = 1;
 };
