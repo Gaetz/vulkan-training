@@ -251,7 +251,7 @@ bool Step01Renderer::initSwapchain(SDL_Window* window) {
     auto vkbSwap    = swapResult.value();
     swapchain       = vk::raii::SwapchainKHR{device, vkbSwap.swapchain};
     swapchainFormat = static_cast<vk::Format>(vkbSwap.image_format);
-    swapchainExtent = {vkbSwap.extent.width, vkbSwap.extent.height};
+    swapchainExtent = vk::Extent2D{vkbSwap.extent.width, vkbSwap.extent.height};
 
     // swapchain.getImages() queries vkGetSwapchainImagesKHR via the raii wrapper.
     swapchainImages = swapchain.getImages();
