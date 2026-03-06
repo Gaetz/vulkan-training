@@ -29,6 +29,7 @@ public:
     void destroy();
 
     friend class TextureLoader;
+    friend class KtxTextureLoader;
 
 private:
     Image               image;

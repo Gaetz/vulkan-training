@@ -59,6 +59,42 @@ FetchContent_MakeAvailable(tinyobjloader)
 message(STATUS "✔  tinyobjloader ready")
 message(STATUS "")
 
+# tinygltf (header-only)
+FetchContent_Declare(
+    tinygltf
+    GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
+    GIT_TAG v2.9.3
+    GIT_SHALLOW TRUE
+)
+message(STATUS "⬇  Downloading tinygltf (v2.9.3)...")
+set(TINYGLTF_HEADER_ONLY ON CACHE BOOL "" FORCE)
+set(TINYGLTF_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(tinygltf)
+message(STATUS "✔  tinygltf ready")
+message(STATUS "")
+
+# KTX-Software (libktx)
+FetchContent_Declare(
+    KTX-Software
+    GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+    GIT_TAG v4.3.2
+    GIT_SHALLOW TRUE
+)
+message(STATUS "⬇  Downloading KTX-Software (v4.3.2)...")
+set(KTX_FEATURE_TESTS          OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_TOOLS          OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_GL_UPLOAD      OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_VK_UPLOAD      OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_DOC            OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_JNI            OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_PY             OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_LOADTEST_APPS  OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_KTX1           ON  CACHE BOOL "" FORCE)
+set(KTX_FEATURE_STATIC_LIBRARY ON  CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(KTX-Software)
+message(STATUS "✔  KTX-Software ready")
+message(STATUS "")
+
 # vk-bootstrap
 FetchContent_Declare(
     vk-bootstrap
@@ -115,10 +151,14 @@ add_executable(VulkanIntro
     Engine/Renderer/Model.cpp
     Engine/Renderer/ModelLoader.hpp
     Engine/Renderer/ModelLoader.cpp
+    Engine/Renderer/GltfModelLoader.hpp
+    Engine/Renderer/GltfModelLoader.cpp
     Engine/Renderer/Texture.hpp
     Engine/Renderer/Texture.cpp
     Engine/Renderer/TextureLoader.hpp
     Engine/Renderer/TextureLoader.cpp
+    Engine/Renderer/KtxTextureLoader.hpp
+    Engine/Renderer/KtxTextureLoader.cpp
     Engine/Renderer/ShaderLoader.hpp
     Engine/Renderer/ShaderLoader.cpp
     Engine/Renderer/ImmediateSubmit.hpp
@@ -163,6 +203,10 @@ add_executable(VulkanIntro
     Steps/Step10_ComputeShaderParticles/Step10Renderer.hpp
     Steps/Step10_ComputeShaderParticles/Step10Scene.cpp
     Steps/Step10_ComputeShaderParticles/Step10Scene.hpp
+    Steps/Step11_GltfKtx2/Step11Renderer.cpp
+    Steps/Step11_GltfKtx2/Step11Renderer.hpp
+    Steps/Step11_GltfKtx2/Step11Scene.cpp
+    Steps/Step11_GltfKtx2/Step11Scene.hpp
 )
 
 # Platform-specific sources
@@ -180,10 +224,12 @@ target_link_libraries(VulkanIntro
         tinyobjloader
         vk-bootstrap::vk-bootstrap
         GPUOpen::VulkanMemoryAllocator
+        ktx
 )
 
-# stb is header-only, add include path
+# stb and tinygltf are header-only, add include paths
 target_include_directories(VulkanIntro PRIVATE ${stb_SOURCE_DIR})
+target_include_directories(VulkanIntro PRIVATE ${tinygltf_SOURCE_DIR})
 
 # Shader compilation — Slang → SPIR-V
 find_program(SLANGC slangc REQUIRED)   # /usr/local/bin/slangc on this system
@@ -276,7 +322,17 @@ add_custom_command(
     DEPENDS ${SHADER10_SRC}
     COMMENT "Compiling 10.ComputeParticles.slang → compute SPIR-V"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV} ${SHADER09_SPV} ${SHADER10G_SPV} ${SHADER10C_SPV})
+set(SHADER11_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/11.GltfKtx2.slang")
+set(SHADER11_SPV "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/11.GltfKtx2.spv")
+add_custom_command(
+    OUTPUT  ${SHADER11_SPV}
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders"
+    COMMAND ${SLANGC} -target spirv -profile spirv_1_4 -emit-spirv-directly
+            -entry vertMain -entry fragMain ${SHADER11_SRC} -o ${SHADER11_SPV}
+    DEPENDS ${SHADER11_SRC}
+    COMMENT "Compiling 11.GltfKtx2.slang → SPIR-V"
+)
+add_custom_target(Shaders DEPENDS ${SHADER_SPV} ${SHADER04_SPV} ${SHADER05_SPV} ${SHADER06_SPV} ${SHADER07_SPV} ${SHADER08_SPV} ${SHADER09_SPV} ${SHADER10G_SPV} ${SHADER10C_SPV} ${SHADER11_SPV})
 add_dependencies(VulkanIntro Shaders)
 
 # Copy assets from source to build directory on every build
